@@ -1,0 +1,17 @@
+<!-- @dsCard group="Graphs" height=190 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>BrailleGraph — preview</title>
+<style>body{margin:0;background:var(--bg)}</style></head>
+<body>
+<pre id="s"></pre>
+<script>
+var M = window.MonitorTUI;
+var cpu=[], gpu=[], t;
+for (t=0;t<140;t++){ cpu.push(t<40?3:28+18*Math.sin(t/6)+Math.max(0,40*Math.sin(t/17))); gpu.push(t<120?2:30*Math.random()); }
+M.Screen(document.getElementById("s"), M.hjoin(1,
+  M.box("cpu", [["level-low"," 28%",true]], 40, 9, [[["dim"," E "],["","2424"],["dim"," · P "],["","3262"],["dim"," MHz"]]].concat(M.graph(cpu, 36, 6, 100))),
+  M.box("gpu", [["series-gpu","  2%",true]], 40, 9, [[["dim"," 16 cores  ·  "],["","444 MHz"],["dim","  ·  ANE "],["","  0%"]]].concat(M.graph(gpu, 36, 6, 100, "series-gpu")))));
+</script>
+</body>
+</html>

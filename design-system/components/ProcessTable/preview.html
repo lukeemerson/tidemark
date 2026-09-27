@@ -1,0 +1,15 @@
+<!-- @dsCard group="Tables" height=250 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ProcessTable — preview</title>
+<style>body{margin:0;background:var(--bg)}</style></head>
+<body>
+<pre id="s"></pre>
+<script>
+var M = window.MonitorTUI;
+var rows=[{pid:900,command:"replayd",cpu:176,gpu:0,mem:.1,rss:10240},{pid:33239,command:"mactop",cpu:15.7,gpu:0,mem:.4,rss:60416},{pid:867,command:"Finder",cpu:4.5,gpu:0,mem:.3,rss:41984},{pid:27755,command:"claude",cpu:3.9,gpu:0,mem:1.8,rss:293888},{pid:10730,command:"Terminal",cpu:1.8,gpu:12.1,mem:.6,rss:93184},{pid:62772,command:"Codex (Service)",cpu:.6,gpu:1.3,mem:.7,rss:114688}];
+M.Screen(document.getElementById("s"), M.box("processes", null, 92, 9, M.processTable(rows, 88, 6)).concat([[]],
+  M.hjoin(1, M.box("processes · mid", null, 62, 6, M.processTable(rows, 58, 3)), M.box("min", null, 32, 6, M.processTable(rows, 28, 3)))));
+</script>
+</body>
+</html>

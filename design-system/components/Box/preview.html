@@ -1,0 +1,25 @@
+<!-- @dsCard group="Frames" height=240 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Box — preview</title>
+<style>body{margin:0;background:var(--bg)}</style></head>
+<body>
+<pre id="s"></pre>
+<script>
+var M = window.MonitorTUI;
+var mem = [
+    M.spread([["level-mid", "12.0"], ["dim", " / 16.0 GB"]], [["dim", "swap 0.0 / 0.0 GB"]], 40),
+    M.bar(75, 40),
+    [["dim", " DRAM"], ["", "  ↓ 2.9  ↑ 0.5 GB/s"]]];
+var cf = [
+    [["series-net", "↓ 273", true], ["dim", " Mbps"], ["", "   "], ["series-net", "↑ 76", true], ["dim", " Mbps"]],
+    [["dim", " ping "], ["", "68 ms"], ["dim", "  jitter "], ["", "101 ms"], ["dim", "  loss "], ["", "0%"]]];
+var lab = function (d) { return [[["dim", " draft " + d]]]; };
+M.Screen(document.getElementById("s"), M.hjoin(1,
+  M.box("memory", [["level-mid", " 75%", true]], 44, 5, mem),
+  M.box("cloudflare", [["dim", "9h ago"]], 44, 5, cf)).concat([[]],
+  M.hjoin(1, M.box("heavy", null, 29, 3, lab("03 (adopted)")), M.box("round", null, 29, 3, lab("01 04 06 10"), "round"), M.box("square", null, 29, 3, lab("02 08"), "square")),
+  M.hjoin(1, M.box("double", null, 29, 3, lab("07"), "double"), M.box("dashed", null, 29, 3, lab("09"), "dashed"), M.box("rule", null, 29, 3, lab("05"), "rule"))));
+</script>
+</body>
+</html>

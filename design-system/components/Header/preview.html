@@ -1,0 +1,15 @@
+<!-- @dsCard group="Frames" height=64 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Header — preview</title>
+<style>body{margin:0;background:var(--bg)}</style></head>
+<body>
+<pre id="s"></pre>
+<script>
+var M = window.MonitorTUI;
+var m={name:"Apple M2 Pro",e:4,p:6,gpuCores:16,battery:"80%",clock:"19:47:19"};
+m.have=true; var a=M.header(m, 96); m.have=false; var b=M.header(m, 96);
+M.Screen(document.getElementById("s"), a.concat([[]], b));
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<!-- @dsCard group="Graphs" height=200 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>RunBars — preview</title>
+<style>body{margin:0;background:var(--bg)}</style></head>
+<body>
+<pre id="s"></pre>
+<script>
+var M = window.MonitorTUI;
+var dl=[210,250,255,230,262,200,255,280,281,279,273], ul=[70,72,60,50,70,30,72,80,81,79,76], m=281, L=[];
+M.runBars(dl, ul, 8, m, 1, "series-net", "series-power").forEach(function (l, i) { L.push([["dim", i ? "     " : ("    " + m).slice(-4) + " "]].concat(l)); });
+L.push([["dim", "     " + dl.length + " runs · "], ["series-net", "▌"], ["dim", " down "], ["series-power", "▌"], ["dim", " up"]]);
+M.Screen(document.getElementById("s"), M.box("cloudflare", [["dim", "9h ago"]], 44, 0, L, "double"));
+</script>
+</body>
+</html>

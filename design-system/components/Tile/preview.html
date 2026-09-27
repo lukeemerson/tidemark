@@ -1,0 +1,19 @@
+<!-- @dsCard group="Frames" height=96 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Tile — preview</title>
+<style>body{margin:0;background:var(--bg)}</style></head>
+<body>
+<pre id="s"></pre>
+<script>
+var M = window.MonitorTUI;
+var cpu=[40,48,40,40,30,30,30,30,30,30,30,28], gpu=[12,20,4,4,3,3,3,2,2,2,2,2], pw=[24,24,30,27,24,24,23,20,20,20,19,16], tc=[65,65,65,65,65,65,65,65,65,65,65,65], dl=[210,250,255,230,262,200,255,280,281,279,262,273];
+M.Screen(document.getElementById("s"), M.hjoin(1,
+  M.tile("cpu", [["level-low", " 28%", true]], cpu, 100, "", 16),
+  M.tile("gpu", [["series-gpu", "  2%", true]], gpu, 100, "series-gpu", 16),
+  M.tile("power", [["series-power", "15.9 W", true]], pw, 36.6, "series-power", 16),
+  M.tile("temp", [["level-mid", "65°", true]], tc, 110, "level-high", 16),
+  M.tile("↓ cf", [["series-net", "273 Mbps", true]], dl, 281, "series-net", 16)));
+</script>
+</body>
+</html>

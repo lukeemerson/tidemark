@@ -1,0 +1,18 @@
+<!-- @dsCard group="Meters" height=96 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Sparkline — preview</title>
+<style>body{margin:0;background:var(--bg)}</style></head>
+<body>
+<pre id="s"></pre>
+<script>
+var M = window.MonitorTUI;
+var dl=[210,250,255,230,262,200,255,280,281,279,262,273], ul=[70,72,60,50,70,30,72,80,81,79,76,76], lat=[40,40,110,40,40,40,40,40,40,30,40,68];
+M.Screen(document.getElementById("s"), [
+  [["dim"," ↓ hist "],["series-net", M.spark(dl, 12, 281)]],
+  [["dim"," ↑ hist "],["series-power", M.spark(ul, 12, 81)]],
+  [["dim"," ping   "],["dim", M.spark(lat, 16, 110)]],
+  [["dim"," short  "],["series-net", M.spark([100,200,150], 12, 200)], ["dim","  (blank until history fills)"]]]);
+</script>
+</body>
+</html>

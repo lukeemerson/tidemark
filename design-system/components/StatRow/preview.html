@@ -1,0 +1,29 @@
+<!-- @dsCard group="Meters" height=250 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>StatRow — preview</title>
+<style>body{margin:0;background:var(--bg)}</style></head>
+<body>
+<pre id="s"></pre>
+<script>
+var M = window.MonitorTUI;
+var iw=34, cores=[36,22,14,9,45,36,29,36,28,23], c=[];
+cores.forEach(function (p) { c.push([M.level(p), M.spark([p], 1, 100)]); });
+M.Screen(document.getElementById("s"), M.box("Apple M2 Pro", null, 38, 0, [
+  M.statRow("cpu", [["level-low", " 28%", true]], 28, iw),
+  M.statRow("cores", c, null, iw),
+  M.statRow("gpu", [["series-gpu", "  2%", true]], 2, iw),
+  M.statRow("mem", [["level-mid", " 75%", true]], 75, iw),
+  M.statRow("power", [["series-power", "15.9 W", true]], null, iw),
+  [],
+  M.statRow("temp", [["level-mid", "65°"], ["dim", " cpu  "], ["level-mid", "58°"], ["dim", " gpu"]], null, iw),
+  M.statRow("fan", [["", "2321"], ["dim", " rpm · Nominal"]], null, iw),
+  M.statRow("net", [["", "↓ 2.5 K/s ↑ 2.5 K/s"]], null, iw),
+  M.statRow("Mac HD", [["", "76%"]], 76, iw),
+  [],
+  M.rule("cloudflare", iw),
+  M.statRow("speed", [["series-net", "↓ 273", true], ["dim", " / "], ["series-power", "↑ 76", true], ["dim", " Mbps"]], null, iw),
+  M.statRow("ping", [["", "68 ms"], ["dim", "  jitter "], ["", "101 ms"]], null, iw)], "round"));
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<!-- @dsCard group="Frames" height=230 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>SectionedFrame — preview</title>
+<style>body{margin:0;background:var(--bg)}</style></head>
+<body>
+<pre id="s"></pre>
+<script>
+var M = window.MonitorTUI;
+var cpu=[], pw=[], t; for (t=0;t<100;t++){ cpu.push(t<30?3:28+18*Math.sin(t/6)+Math.max(0,40*Math.sin(t/17))); pw.push(t<30?6:16+8*Math.sin(t/9)); }
+var cores=[36,22,14,9,45,36,29,36,28,23], C=[];
+for (var i=0;i<10;i+=2){ var r=[]; for (var j=0;j<2;j++){ var k=i+j; r=r.concat([["dim", k<4?"E"+(k+1)+" ":"P"+(k-3)+" "]], M.bar(cores[k],13), [[M.level(cores[k]), ("    "+cores[k]+"%").slice(-5)]]); if(!j) r.push(["","   "]); } C.push(r); }
+M.Screen(document.getElementById("s"), M.sectioned(50, 48, [
+  { left: ["cpu", [["level-low", " 28%", true]], [[["dim"," E "],["","2424"],["dim"," · P "],["","3262"],["dim"," MHz"]]].concat(M.graph(cpu, 48, 4, 100))],
+    right: ["cores", null, C] },
+  { left: ["gpu", [["series-gpu", "  2%", true]], [[["dim"," 16 cores  ·  "],["","444 MHz"]]]],
+    right: ["power", [["series-power", "15.9 W", true]], M.graph(pw, 46, 2, 36.6, "series-power")] }],
+  ["processes", M.processTable([{pid:900,command:"replayd",cpu:176,gpu:0,mem:.1,rss:10240},{pid:33239,command:"mactop",cpu:15.7,gpu:0,mem:.4,rss:60416}], 97, 2)]));
+</script>
+</body>
+</html>

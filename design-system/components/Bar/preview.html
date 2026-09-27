@@ -1,0 +1,17 @@
+<!-- @dsCard group="Meters" height=120 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Bar — preview</title>
+<style>body{margin:0;background:var(--bg)}</style></head>
+<body>
+<pre id="s"></pre>
+<script>
+var M = window.MonitorTUI;
+var cores=[36,22,14,9,45,36,29,36,62,88], L=[];
+for (var i=0;i<cores.length;i+=2){ var row=[]; for (var j=0;j<2;j++){ var k=i+j, p=cores[k];
+  row=row.concat([["dim", k<4?"E"+(k+1)+" ":"P"+(k-3)+" "]], M.bar(p,22), [[M.level(p), ("    "+p+"%").slice(-5)]]); if(!j) row.push(["","   "]); }
+  L.push(row); }
+M.Screen(document.getElementById("s"), M.box("cores", null, 70, 7, L));
+</script>
+</body>
+</html>
