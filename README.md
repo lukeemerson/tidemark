@@ -31,15 +31,25 @@ with [Bubble Tea](https://github.com/charmbracelet/bubbletea); data comes from
 <sub>Real 140×42 terminal windows running the recorded mactop sample from the tests. The monitor
 only uses the terminal's 16 ANSI colours, so it takes on whatever theme you run.</sub>
 
-## Run it
+## Install
 
-Needs macOS on Apple Silicon, Go 1.27+, and mactop.
+Needs macOS on Apple Silicon and [mactop](https://github.com/metaspartan/mactop).
 
 ```sh
 brew install mactop
+curl -fsSL https://github.com/lukeemerson/mac-monitor/releases/latest/download/mac-monitor_darwin_arm64.tar.gz | tar -xz
+mv mac-monitor_darwin_arm64/monitor ~/.local/bin/    # or anywhere on your PATH
+monitor
+```
+
+Downloaded the release in a browser instead? macOS quarantines it; clear that once with
+`xattr -d com.apple.quarantine ~/.local/bin/monitor`.
+
+**From source** (Go 1.27+):
+
+```sh
 git clone https://github.com/lukeemerson/mac-monitor && cd mac-monitor
 go build -o ~/.local/bin/monitor ./cmd/monitor
-monitor
 ```
 
 `r` needs [cloudflare-speed-cli](https://github.com/kavehtehrani/cloudflare-speed-cli). Without it
@@ -168,6 +178,9 @@ go test ./...
 - **Sweep:** every layout is drawn at sizes from 1×1 to 200×80, before and after data. The test
   fails if a line overflows, the frame doesn't fit, a box is left open at the bottom, or a box
   interior stays blank for 4+ rows.
+
+`scripts/release.sh v0.1.0` runs the tests, builds `mac-monitor_darwin_arm64.tar.gz` (plus its
+sha256) and attaches both to a draft GitHub release, ready to publish.
 
 [`PLAN.md`](PLAN.md) has the build notes and what comes next: an on-demand settings menu, then
 rewind, a "what changed?" feed, and processes grouped by project.
