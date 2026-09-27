@@ -10,7 +10,7 @@ go test ./...
 rm -rf dist
 mkdir -p "dist/$name"
 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o "dist/$name/tidemark" ./cmd/tidemark
-cp README.md "dist/$name/"
+cp README.md LICENSE "dist/$name/"
 tar -czf "dist/$name.tar.gz" -C dist "$name"
 (cd dist && shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256")
 

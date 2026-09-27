@@ -184,3 +184,7 @@ sha256) and attaches both to a draft GitHub release, ready to publish.
 
 [`PLAN.md`](PLAN.md) has the build notes and what comes next: an on-demand settings menu, then
 rewind, a "what changed?" feed, and processes grouped by project.
+
+## License
+
+[MIT](LICENSE)
