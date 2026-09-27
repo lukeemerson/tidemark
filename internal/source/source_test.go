@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-// render/mactop.raw is 90s of real mactop --headless -i 1000 output.
+// testdata/mactop.raw is 90s of real mactop --headless -i 1000 output.
 func TestDecodeRecording(t *testing.T) {
-	f, err := os.Open("../../render/mactop.raw")
+	f, err := os.Open("testdata/mactop.raw")
 	if err != nil {
 		t.Fatal(err)
 	}

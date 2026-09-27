@@ -1,3 +1,0 @@
-#!/usr/bin/env zsh
-# run a draft: ./run 3
-exec zsh ${0:A:h}/v${(l:2::0:)1}.zsh
