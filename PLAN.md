@@ -20,28 +20,27 @@ Process names: when mactop reports a bare version (`2.1.283`), resolve argv[0] w
 ## Layout
 
 ```
-cmd/monitor/main.go      flags (-i interval), tea.NewProgram(model, tea.WithAltScreen())
+cmd/monitor/main.go      flags (-i interval), starts mactop, tea.NewProgram(model)
 internal/source/         mactop.go (exec + json.Decoder → chan Sample), cloudy.go, procname.go
-internal/ui/             model.go (Init/Update/View), tiles.go, panels.go, graph.go (braille), style.go
+internal/ui/             model.go (Init/Update/View, alt screen), draw.go (box/graph/spark/bar/hjoin), panels.go
 ```
 
-- `Sample` is a struct matching mactop's JSON, with only the fields the zsh `$JQ` reads.
-- History is a fixed ring buffer (400) per series, the same as `HIST`.
+- `Sample` is a struct matching mactop's JSON, with only the fields the zsh `$JQ` read.
+- History is a slice per series capped at 400 (`histLen`), the same as `HIST`.
 
 ## Bubble Tea mapping
 
 | zsh                         | Bubble Tea                                                                                     |
 | --------------------------- | ---------------------------------------------------------------------------------------------- |
-| `draw` before mactop starts | `View()` with `have=false` renders dashes; `Init()` returns the start-mactop cmd               |
-| `zselect` on the mactop fd  | a `tea.Cmd` that reads one line and returns `sampleMsg`, re-issued in `Update`                 |
+| `draw` before mactop starts | `View()` with `have=false` renders dashes; `Init()` returns `m.wait`                           |
+| `zselect` on the mactop fd  | `Model.wait` receives one `Sample` from the channel as `sampleMsg`, re-issued in `Update`      |
 | `TRAPWINCH`                 | `tea.WindowSizeMsg`                                                                            |
-| `q` key                     | `tea.KeyMsg` "q" / ctrl+c → kill mactop, `tea.Quit`                                            |
-| `box`/`hjoin`/`padv`/`vis`  | lipgloss `Border(lipgloss.ThickBorder())` + `JoinHorizontal/Vertical`; lipgloss measures width |
-| `graph` / `spark` / `bar`   | hand-written (small, pure functions; unit-test them)                                           |
+| `q` key                     | `tea.KeyPressMsg` "q" / ctrl+c → `tea.Quit`; main.go stops mactop                              |
+| `box`/`hjoin`/`padv`/`vis`  | hand-ported `box`/`hjoin` in draw.go; `lipgloss.Width` measures width                          |
+| `graph` / `spark` / `bar`   | hand-written pure functions in draw.go                                                         |
 | ANSI palette names          | lipgloss ANSI colours 1–6, 8, so the Alacritty palette still applies                           |
 
-Border titles: lipgloss has no titled border, so each panel builds its top line itself
-(port `box()`'s top-line logic).
+Border titles: lipgloss has no titled border, so `box()` in draw.go builds the top line itself.
 
 ## Packaging
 
