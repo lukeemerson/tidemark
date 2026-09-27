@@ -8,9 +8,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/lukeemerson/mac-monitor/internal/config"
-	"github.com/lukeemerson/mac-monitor/internal/source"
-	"github.com/lukeemerson/mac-monitor/internal/ui"
+	"github.com/lukeemerson/tidemark/internal/config"
+	"github.com/lukeemerson/tidemark/internal/source"
+	"github.com/lukeemerson/tidemark/internal/ui"
 )
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 
 	col, err := source.Mactop(*interval)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "monitor:", err)
+		fmt.Fprintln(os.Stderr, "tidemark:", err)
 		os.Exit(1)
 	}
 	cfg := config.Load()
@@ -38,7 +38,7 @@ func main() {
 		err = cerr
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "monitor:", err)
+		fmt.Fprintln(os.Stderr, "tidemark:", err)
 		os.Exit(1)
 	}
 }

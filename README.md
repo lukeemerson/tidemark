@@ -1,4 +1,4 @@
-# mac-monitor
+# tidemark
 
 A terminal system monitor for Apple Silicon Macs: CPU, GPU, power, memory pressure, thermals,
 network and your saved Cloudflare speed tests, with ten layouts on the `l` key. Written in Go
@@ -28,7 +28,7 @@ with [Bubble Tea](https://github.com/charmbracelet/bubbletea); data comes from
   </tr>
 </table>
 
-<sub>Real 140×42 terminal windows running the recorded mactop sample from the tests. The monitor
+<sub>Real 140×42 terminal windows running the recorded mactop sample from the tests. tidemark
 only uses the terminal's 16 ANSI colours, so it takes on whatever theme you run.</sub>
 
 ## Install
@@ -37,19 +37,19 @@ Needs macOS on Apple Silicon and [mactop](https://github.com/metaspartan/mactop)
 
 ```sh
 brew install mactop
-curl -fsSL https://github.com/lukeemerson/mac-monitor/releases/latest/download/mac-monitor_darwin_arm64.tar.gz | tar -xz
-mv mac-monitor_darwin_arm64/monitor ~/.local/bin/    # or anywhere on your PATH
-monitor
+curl -fsSL https://github.com/lukeemerson/tidemark/releases/latest/download/tidemark_darwin_arm64.tar.gz | tar -xz
+mv tidemark_darwin_arm64/tidemark ~/.local/bin/    # or anywhere on your PATH
+tidemark
 ```
 
 Downloaded the release in a browser instead? macOS quarantines it; clear that once with
-`xattr -d com.apple.quarantine ~/.local/bin/monitor`.
+`xattr -d com.apple.quarantine ~/.local/bin/tidemark`.
 
 **From source** (Go 1.27+):
 
 ```sh
-git clone https://github.com/lukeemerson/mac-monitor && cd mac-monitor
-go build -o ~/.local/bin/monitor ./cmd/monitor
+git clone https://github.com/lukeemerson/tidemark && cd tidemark
+go build -o ~/.local/bin/tidemark ./cmd/tidemark
 ```
 
 `r` needs [cloudflare-speed-cli](https://github.com/kavehtehrani/cloudflare-speed-cli). Without it
@@ -57,11 +57,11 @@ the cloudflare panels still show any runs it saved earlier.
 
 | key | does |
 | --- | --- |
-| `l` / `L` | next / previous layout (remembered in `~/.config/mac-monitor/config.json`) |
+| `l` / `L` | next / previous layout (remembered in `~/.config/tidemark/config.json`) |
 | `r` | run a Cloudflare speed test (~30 s) and reload the cloudflare panels |
 | `q` | quit |
 
-`monitor -i 500` samples every 500 ms (default 1000).
+`tidemark -i 500` samples every 500 ms (default 1000).
 
 ## Layouts
 
@@ -160,13 +160,13 @@ power 15.9 W    ▅▅▅▅▆▅▅▅▆▅█▇▅▅▇▆▅▅▅▄▄�
 
 - **mactop** (`--headless`, streamed): CPU, GPU, ANE, per-core use, frequencies, power,
   temperatures, fans, memory, DRAM bandwidth, network and disk rates, battery and the top 20
-  processes. `monitor` draws its frames before the first sample, then fills them in.
+  processes. `tidemark` draws its frames before the first sample, then fills them in.
 - **sysctl:** load averages (`vm.loadavg`), kernel memory pressure and the available %
   (`kern.memorystatus_*`), and the names of processes that mactop reports only as a version number.
 - **cloudflare-speed-cli:** the saved runs in `~/Library/Application Support/cloudflare-speed-cli/runs`.
   They're read from disk; a test only runs when you press `r`.
 
-If mactop exits or sends something unreadable, `monitor` quits with the reason and exit status 1.
+If mactop exits or sends something unreadable, `tidemark` quits with the reason and exit status 1.
 
 ## Development
 
@@ -179,7 +179,7 @@ go test ./...
   fails if a line overflows, the frame doesn't fit, a box is left open at the bottom, or a box
   interior stays blank for 4+ rows.
 
-`scripts/release.sh v0.1.0` runs the tests, builds `mac-monitor_darwin_arm64.tar.gz` (plus its
+`scripts/release.sh v0.1.0` runs the tests, builds `tidemark_darwin_arm64.tar.gz` (plus its
 sha256) and attaches both to a draft GitHub release, ready to publish.
 
 [`PLAN.md`](PLAN.md) has the build notes and what comes next: an on-demand settings menu, then

@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/sys/unix"
 
-	"github.com/lukeemerson/mac-monitor/internal/source"
+	"github.com/lukeemerson/tidemark/internal/source"
 )
 
 const histLen = 400

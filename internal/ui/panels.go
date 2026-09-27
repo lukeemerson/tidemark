@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lukeemerson/mac-monitor/internal/source"
+	"github.com/lukeemerson/tidemark/internal/source"
 )
 
 // Panel contents take the inner width (panel width - 4) and return lines.

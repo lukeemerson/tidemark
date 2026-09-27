@@ -1,4 +1,4 @@
-module github.com/lukeemerson/mac-monitor
+module github.com/lukeemerson/tidemark
 
 go 1.27.1
 

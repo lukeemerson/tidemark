@@ -1,4 +1,4 @@
-// Package config persists monitor's settings in ~/.config/mac-monitor/config.json.
+// Package config persists tidemark's settings in ~/.config/tidemark/config.json.
 package config
 
 import (
@@ -18,7 +18,7 @@ func Path() string {
 		home, _ := os.UserHomeDir()
 		dir = filepath.Join(home, ".config")
 	}
-	return filepath.Join(dir, "mac-monitor", "config.json")
+	return filepath.Join(dir, "tidemark", "config.json")
 }
 
 // Load returns the saved config; a missing or unreadable file gives the zero Config.

@@ -1,4 +1,4 @@
-# Go + Bubble Tea port of `monitor`
+# Go + Bubble Tea port of `monitor` (now `tidemark`)
 
 Goal: one static binary that renders the draft-03 layout, installed with `go install` or Homebrew.
 Go 1.27.1 is installed (Homebrew). Bubble Tea v2 (`charm.land/bubbletea/v2`) and lipgloss v2.
@@ -20,7 +20,7 @@ Process names: when mactop reports a bare version (`2.1.283`), resolve argv[0] w
 ## Layout
 
 ```
-cmd/monitor/main.go      flags (-i interval), starts mactop, tea.NewProgram(model)
+cmd/tidemark/main.go     flags (-i interval), starts mactop, tea.NewProgram(model)
 internal/source/         mactop.go (exec + json.Decoder → chan Sample), cloudy.go, procname.go
 internal/ui/             model.go (Init/Update/View, alt screen), draw.go (box/graph/spark/bar/hjoin), panels.go
 ```
@@ -44,8 +44,8 @@ Border titles: lipgloss has no titled border, so `box()` in draw.go builds the t
 
 ## Packaging
 
-- `go build -trimpath -ldflags "-s -w" ./cmd/monitor`, target `darwin/arm64`.
-- `go install github.com/<you>/mac-monitor/cmd/monitor@latest` once it's pushed.
+- `go build -trimpath -ldflags "-s -w" ./cmd/tidemark`, target `darwin/arm64`.
+- `go install github.com/lukeemerson/tidemark/cmd/tidemark@latest` once it's pushed.
 - Optional: a Homebrew tap formula with `depends_on "mactop"` (and `depends_on arch: :arm64`).
 - goreleaser only if you want tagged binary releases.
 
@@ -56,7 +56,7 @@ Border titles: lipgloss has no titled border, so `box()` in draw.go builds the t
 3. ✅ Remaining panels, then resize and quit handling.
 4. ✅ Replace `bin/monitor`, and remove `drafts/` and `render/` once the Go version matches.
 5. ✅ `l`/`L` layouts (tiles · sidebar · instrument), each with its own line weight and skeleton;
-   choice saved to `~/.config/mac-monitor/config.json`.
+   choice saved to `~/.config/tidemark/config.json`.
 6. On-demand config UI (btop-style, closer to mactop's): more settings behind one menu.
 
 ## Expansion: why this one is better
@@ -79,7 +79,7 @@ Strongest combination: rewind + change detection + project grouping. Together th
    consumers", "swap grew 800 MB in two minutes", "power stayed high after the build").
    Select one to see its measurements. Start with explicit rules; keep observations separate
    from suspected causes.
-3. **Organize activity by work.** Group processes into projects/sessions ("mac-monitor build",
+3. **Organize activity by work.** Group processes into projects/sessions ("tidemark build",
    "editor + language servers", "browser", "local model"), expandable to the process tree.
    Useful for agent-heavy work: which session spawned the busy compiler or left a server
    running. Needs process ancestry and session metadata.

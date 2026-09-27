@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
-	"github.com/lukeemerson/mac-monitor/internal/source"
+	"github.com/lukeemerson/tidemark/internal/source"
 )
 
 func replayed(t *testing.T) Model {
