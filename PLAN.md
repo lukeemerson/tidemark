@@ -1,7 +1,7 @@
 # Go + Bubble Tea port of `monitor`
 
 Goal: one static binary that renders the draft-03 layout, installed with `go install` or Homebrew.
-Go isn't installed yet: `brew install go`.
+Go 1.27.1 is installed (Homebrew). Bubble Tea v2 (`charm.land/bubbletea/v2`) and lipgloss v2.
 
 ## Data source
 
@@ -52,7 +52,7 @@ Border titles: lipgloss has no titled border, so each panel builds its top line 
 
 ## Order
 
-1. `go mod init`, source package + a test that decodes `render/mactop.raw`.
-2. Model, rendering the header and tiles only. Check it against the zsh version side by side.
+1. ✅ `go mod init`, source package + a test that decodes `render/mactop.raw`.
+2. ✅ Model, rendering the header and tiles only. Check it against the zsh version side by side.
 3. Remaining panels, then resize and quit handling.
 4. Replace `bin/monitor`, and remove `drafts/` and `render/` once the Go version matches.
