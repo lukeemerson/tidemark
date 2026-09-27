@@ -38,7 +38,9 @@ type Run struct {
 		} `json:"colo"`
 		ASOrg string `json:"asOrganization"`
 	} `json:"meta"`
-	Wireless bool `json:"is_wireless"`
+	Colo     string `json:"colo"`   // fallback for meta.colo.iata
+	ASOrg    string `json:"as_org"` // fallback for meta.asOrganization
+	Wireless bool   `json:"is_wireless"`
 }
 
 // CloudyRuns reads the newest (by mtime) max saved runs from dir, oldest first. No test is run.

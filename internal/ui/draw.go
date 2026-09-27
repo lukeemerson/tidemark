@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // ANSI palette indices, so the terminal's own theme (Alacritty) supplies the colours.
@@ -28,13 +30,18 @@ func level(v float64) lipgloss.Style {
 	return low
 }
 
-// box draws a heavy frame w wide and h tall with the title set into the top border.
-// Lines are padded or cut to the inner width.
-func box(t string, w, h int, lines ...string) []string {
+func rep(s string, n int) string { return strings.Repeat(s, max(n, 0)) }
+
+// box draws a heavy frame w wide and h tall: title and optional right label set into the top
+// border, lines padded or cut to the inner width.
+func box(t, rt string, w, h int, lines ...string) []string {
 	iw := w - 4
-	tl := " " + t + " "
-	n := max(w-4-lipgloss.Width(tl), 0)
-	out := []string{dim.Render("┏━") + title.Render(tl) + dim.Render(strings.Repeat("━", n)+"━┓")}
+	tl, tr := " "+t+" ", ""
+	if rt != "" {
+		tr = " " + rt + " "
+	}
+	n := w - 4 - lipgloss.Width(tl) - lipgloss.Width(tr)
+	out := []string{dim.Render("┏━") + title.Render(tl) + dim.Render(rep("━", n)) + tr + dim.Render("━┓")}
 	for i := 0; i < h-2; i++ {
 		l := ""
 		if i < len(lines) {
@@ -42,24 +49,70 @@ func box(t string, w, h int, lines ...string) []string {
 		}
 		out = append(out, dim.Render("┃")+" "+pad(l, iw)+" "+dim.Render("┃"))
 	}
-	return append(out, dim.Render("┗"+strings.Repeat("━", w-2)+"┛"))
+	return append(out, dim.Render("┗"+rep("━", w-2)+"┛"))
 }
 
-// pad fits a styled string to exactly w visible columns.
-func pad(s string, w int) string {
-	if n := lipgloss.Width(s); n < w {
-		return s + strings.Repeat(" ", w-n)
+// fit cuts s to n characters with a trailing … or pads it with spaces to n.
+func fit(s string, n int) string {
+	r := []rune(s)
+	if len(r) > n {
+		if n < 1 {
+			return ""
+		}
+		return string(r[:n-1]) + "…"
 	}
-	return lipgloss.NewStyle().MaxWidth(w).Render(s)
+	return s + rep(" ", n-len(r))
 }
 
-func center(s string, w int) string {
-	return strings.Repeat(" ", max((w-lipgloss.Width(s))/2, 0)) + s
+// pad fits a styled string to w visible columns; too-long strings lose their colour and are cut.
+func pad(s string, w int) string {
+	n := lipgloss.Width(s)
+	if n > w {
+		return fit(ansi.Strip(s), w)
+	}
+	return s + rep(" ", w-n)
 }
+
+func center(s string, w int) string { return rep(" ", (w-lipgloss.Width(s))/2) + s }
 
 // spread puts l at the left and r at the right of w columns.
 func spread(l, r string, w int) string {
-	return l + strings.Repeat(" ", max(w-lipgloss.Width(l)-lipgloss.Width(r), 1)) + r
+	return l + rep(" ", max(w-lipgloss.Width(l)-lipgloss.Width(r), 1)) + r
+}
+
+// num formats v, or before mactop's first sample a dim dash right-aligned in the same width.
+func num(have bool, format string, v float64) string {
+	s := fmt.Sprintf(format, v)
+	if !have {
+		return dim.Render(rep(" ", len([]rune(s))-1) + "—")
+	}
+	return s
+}
+
+func rate(have bool, b float64) string {
+	if !have {
+		return dim.Render("—")
+	}
+	u := []string{"B", "K", "M", "G"}
+	i := 0
+	for b >= 1024 && i < 3 {
+		b /= 1024
+		i++
+	}
+	return fmt.Sprintf("%.1f %s/s", b, u[i])
+}
+
+func gb(v float64) string { return fmt.Sprintf("%.1f", v/1073741824) }
+
+// bar is a p% meter w wide: ■ for the filled part in col (or the level colour), dim · after.
+func bar(p float64, w int, col *lipgloss.Style) string {
+	p = min(p, 100)
+	on := int(p/100*float64(w) + 0.5)
+	st := level(p)
+	if col != nil {
+		st = *col
+	}
+	return st.Render(rep("■", on)) + dim.Render(rep("·", w-on))
 }
 
 var spk = []rune("▁▂▃▄▅▆▇█")
@@ -88,15 +141,76 @@ func hmax(hist []float64, floor float64) float64 {
 	return m
 }
 
-// hjoin places blocks side by side with a one-column gap.
+// braille dot bits per fill level (0–4 dots from the bottom) for the left and right columns
+var fillL = []int{0, 64, 68, 70, 71}
+var fillR = []int{0, 128, 160, 176, 184}
+
+// graph draws the newest 2w values of hist as a w×h braille area chart (two samples per cell).
+// Rows take col, or the level colour of their height when col is nil.
+func graph(hist []float64, w, h int, top float64, col *lipgloss.Style) []string {
+	if top <= 0 {
+		top = 1
+	}
+	cells := make([]int, w*h)
+	n := len(hist)
+	for c := 0; c < w; c++ {
+		for side := 0; side < 2; side++ {
+			idx := n - 2*w + c*2 + side
+			if idx < 0 {
+				continue
+			}
+			v := hist[idx]
+			dots := int(min(v/top, 1)*float64(h*4) + 0.5)
+			if v > 0 && dots == 0 {
+				dots = 1
+			}
+			for r := h - 1; r >= 0 && dots > 0; r-- {
+				k := min(dots, 4)
+				if side == 0 {
+					cells[r*w+c] += fillL[k]
+				} else {
+					cells[r*w+c] += fillR[k]
+				}
+				dots -= k
+			}
+		}
+	}
+	out := make([]string, h)
+	for r := 0; r < h; r++ {
+		var b strings.Builder
+		for c := 0; c < w; c++ {
+			b.WriteRune(rune(0x2800 + cells[r*w+c]))
+		}
+		st := level((float64(h-r-1) + 0.5) / float64(h) * 100)
+		if col != nil {
+			st = *col
+		}
+		out[r] = st.Render(b.String())
+	}
+	return out
+}
+
+// hjoin places blocks side by side with a one-column gap, each padded to its widest line.
 func hjoin(blocks ...[]string) []string {
-	var out []string
-	for i := range blocks[0] {
+	h := 0
+	ws := make([]int, len(blocks))
+	for j, b := range blocks {
+		h = max(h, len(b))
+		for _, l := range b {
+			ws[j] = max(ws[j], lipgloss.Width(l))
+		}
+	}
+	out := make([]string, h)
+	for i := range out {
 		row := make([]string, len(blocks))
 		for j, b := range blocks {
-			row[j] = b[i]
+			l := ""
+			if i < len(b) {
+				l = b[i]
+			}
+			row[j] = pad(l, ws[j])
 		}
-		out = append(out, strings.Join(row, " "))
+		out[i] = strings.Join(row, " ")
 	}
 	return out
 }

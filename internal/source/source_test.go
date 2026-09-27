@@ -2,6 +2,7 @@ package source
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -50,5 +51,19 @@ func TestCloudyRunsOrder(t *testing.T) {
 	}
 	if last := runs[len(runs)-1]; last.Download.Mbps == 0 || last.IdleLatency.MedianMs == 0 {
 		t.Errorf("latest run missing speeds: %+v", last)
+	}
+}
+
+func TestProcNames(t *testing.T) {
+	n := ProcNames{}
+	if got := n.Name(1, "launchd"); got != "launchd" {
+		t.Errorf("non-version command changed: %q", got)
+	}
+	// this test binary's own argv[0]
+	if got, want := n.Name(os.Getpid(), "1.2.3"), filepath.Base(os.Args[0]); got != want {
+		t.Errorf("argv0 = %q, want %q", got, want)
+	}
+	if got := n.Name(999999, "2.1.283"); got != "2.1.283" {
+		t.Errorf("dead pid should fall back, got %q", got)
 	}
 }

@@ -4,7 +4,6 @@ package source
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"os/exec"
@@ -93,15 +92,15 @@ func Decode(r io.Reader, out chan<- Sample) error {
 }
 
 // Mactop starts mactop --headless at the given interval and streams its samples.
-// The channel closes when mactop exits or ctx is cancelled.
-func Mactop(ctx context.Context, intervalMs int) (<-chan Sample, error) {
-	cmd := exec.CommandContext(ctx, "mactop", "--headless", "--count", "0", "-i", strconv.Itoa(intervalMs))
+// The channel closes when mactop exits; stop kills it synchronously, so it can't outlive the caller.
+func Mactop(intervalMs int) (samples <-chan Sample, stop func(), err error) {
+	cmd := exec.Command("mactop", "--headless", "--count", "0", "-i", strconv.Itoa(intervalMs))
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := cmd.Start(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	ch := make(chan Sample)
 	go func() {
@@ -109,5 +108,5 @@ func Mactop(ctx context.Context, intervalMs int) (<-chan Sample, error) {
 		Decode(stdout, ch)
 		cmd.Wait()
 	}()
-	return ch, nil
+	return ch, func() { cmd.Process.Kill() }, nil
 }

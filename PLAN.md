@@ -54,5 +54,5 @@ Border titles: lipgloss has no titled border, so each panel builds its top line 
 
 1. ✅ `go mod init`, source package + a test that decodes `render/mactop.raw`.
 2. ✅ Model, rendering the header and tiles only. Check it against the zsh version side by side.
-3. Remaining panels, then resize and quit handling.
+3. ✅ Remaining panels, then resize and quit handling.
 4. Replace `bin/monitor`, and remove `drafts/` and `render/` once the Go version matches.
