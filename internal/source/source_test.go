@@ -67,3 +67,17 @@ func TestProcNames(t *testing.T) {
 		t.Errorf("dead pid should fall back, got %q", got)
 	}
 }
+
+func TestReadSys(t *testing.T) {
+	s := ReadSys()
+	if s.Load[0] <= 0 || s.Load[0] > 1000 {
+		t.Errorf("load = %v", s.Load)
+	}
+	if s.Pressure != 1 && s.Pressure != 2 && s.Pressure != 4 {
+		t.Errorf("pressure level = %d", s.Pressure)
+	}
+	if s.FreePct <= 0 || s.FreePct > 100 {
+		t.Errorf("free %% = %d", s.FreePct)
+	}
+	t.Logf("%+v", s)
+}

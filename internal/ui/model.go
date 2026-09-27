@@ -41,8 +41,13 @@ type Model struct {
 
 	have              bool
 	s                 source.Sample
+	sys               source.Sys
 	hcpu, hgpu, hpow  []float64
 	hmem, htc         []float64
+	hload, hswap      []float64
+	hnin, hnout       []float64 // network bytes/s
+	hdr, hdw          []float64 // disk bytes/s
+	hdram             []float64 // DRAM read+write GB/s
 	cfdl, cful, cflat []float64
 }
 
@@ -169,6 +174,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.hpow = push(m.hpow, m.s.SoC.TotalPower)
 		m.hmem = push(m.hmem, m.memPct())
 		m.htc = push(m.htc, m.s.SoC.CPUTemp)
+		m.sys = source.ReadSys()
+		m.hload = push(m.hload, m.sys.Load[0])
+		m.hswap = push(m.hswap, m.s.Memory.SwapUsed)
+		m.hnin = push(m.hnin, m.s.NetDisk.InBytes)
+		m.hnout = push(m.hnout, m.s.NetDisk.OutBytes)
+		m.hdr = push(m.hdr, m.s.NetDisk.ReadKBytes*1024)
+		m.hdw = push(m.hdw, m.s.NetDisk.WriteKB*1024)
+		m.hdram = push(m.hdram, m.s.SoC.DRAMRead+m.s.SoC.DRAMWrite)
 		return m, m.wait
 	case doneMsg:
 		return m, tea.Quit

@@ -2,8 +2,12 @@ package ui
 
 import (
 	"fmt"
+	"slices"
+	"sort"
 	"strings"
 	"time"
+
+	"github.com/lukeemerson/mac-monitor/internal/source"
 )
 
 // Panel contents take the inner width (panel width - 4) and return lines.
@@ -209,7 +213,11 @@ func orQ(s string) string {
 	return s
 }
 
-func (m Model) pProc(w, n int) []string {
+func (m Model) pProc(w, n int) []string { return m.procTable(w, n, "cpu") }
+
+// procTable lists processes in their current order; sorted by "gpu", the mid-width table
+// shows GPU ms/s where it otherwise shows MEM%.
+func (m Model) procTable(w, n int, by string) []string {
 	cols := "full"
 	if w < 72 {
 		cols = "mid"
@@ -224,7 +232,11 @@ func (m Model) pProc(w, n int) []string {
 	case "full":
 		out = []string{title.Render(" PID     " + hd + fmt.Sprintf("%7s %10s %7s %10s", "CPU%", "GPU ms/s", "MEM%", "RSS"))}
 	case "mid":
-		out = []string{title.Render(" PID     " + hd + fmt.Sprintf("%7s %7s", "CPU%", "MEM%"))}
+		second := "MEM%"
+		if by == "gpu" {
+			second = "GPU ms"
+		}
+		out = []string{title.Render(" PID     " + hd + fmt.Sprintf("%7s %7s", "CPU%", second))}
 	default:
 		out = []string{title.Render(" " + hd + fmt.Sprintf("%7s", "CPU%"))}
 	}
@@ -242,6 +254,9 @@ func (m Model) pProc(w, n int) []string {
 		name := fit(m.names.Name(p.PID, p.Command), nameW)
 		cpu := level(p.CPUPercent).Render(fmt.Sprintf("%7.1f", p.CPUPercent))
 		memp := dim.Render(fmt.Sprintf("%8.1f", p.MemPercent))
+		if by == "gpu" {
+			memp = gpu.Render(fmt.Sprintf("%8.1f", p.GPUMsPerS))
+		}
 		switch cols {
 		case "full":
 			out = append(out, pid+name+cpu+gpu.Render(fmt.Sprintf("%11.1f", p.GPUMsPerS))+
@@ -253,6 +268,18 @@ func (m Model) pProc(w, n int) []string {
 		}
 	}
 	return out
+}
+
+// pProcBy is pProc with the table sorted by "gpu" (ms/s) or "mem" (RSS) instead of CPU.
+func (m Model) pProcBy(w, n int, by string) []string {
+	ps := slices.Clone(m.s.Processes)
+	key := func(p source.Process) float64 { return p.GPUMsPerS }
+	if by == "mem" {
+		key = func(p source.Process) float64 { return p.RSSKB }
+	}
+	sort.SliceStable(ps, func(i, j int) bool { return key(ps[i]) > key(ps[j]) })
+	m.s.Processes = ps
+	return m.procTable(w, n, by)
 }
 
 // panel boxes a panel's contents: the content function gets the inner width.

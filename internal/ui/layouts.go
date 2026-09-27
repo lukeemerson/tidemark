@@ -25,6 +25,11 @@ func init() { // in init: the draw functions reach layouts through head()
 		{"console", func(m Model, rows, w int) bool {
 			return w >= 90 && rows >= 21+max(3, (m.ne+m.np+1)/2)
 		}, Model.consoleLayout},
+		{"compute", func(m Model, rows, w int) bool {
+			return w >= 80 && rows >= 16+max((m.ne+m.np+1)/2+2, 7)
+		}, Model.computeLayout},
+		{"memory", func(_ Model, rows, w int) bool { return w >= 70 && rows >= 23 }, Model.memoryLayout},
+		{"io", func(_ Model, rows, w int) bool { return w >= 70 && rows >= 24 }, Model.ioLayout},
 	}
 }
 

@@ -39,6 +39,9 @@ var (
 	heavy   = border{"┏", "┓", "┗", "┛", "━", "┃"}
 	rounded = border{"╭", "╮", "╰", "╯", "─", "│"}
 	double  = border{"╔", "╗", "╚", "╝", "═", "║"}
+	square  = border{"┌", "┐", "└", "┘", "─", "│"}
+	dashed  = border{"┌", "┐", "└", "┘", "╌", "╎"}
+	hdashed = border{"┏", "┓", "┗", "┛", "╍", "╏"}
 )
 
 // box draws a heavy frame; see border.box.
