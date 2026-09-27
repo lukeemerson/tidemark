@@ -22,8 +22,11 @@ func main() {
 		os.Exit(1)
 	}
 	m := ui.New(samples, source.CloudyRuns(source.CloudyDir(), 40))
-	_, err = tea.NewProgram(m).Run()
+	final, err := tea.NewProgram(m).Run()
 	stop()
+	if fm, ok := final.(ui.Model); ok {
+		fm.Stop()
+	}
 	if err != nil && !errors.Is(err, tea.ErrProgramKilled) {
 		fmt.Fprintln(os.Stderr, "monitor:", err)
 		os.Exit(1)

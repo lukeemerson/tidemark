@@ -3,6 +3,7 @@ package ui
 
 import (
 	"fmt"
+	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ const histLen = 400
 
 type sampleMsg source.Sample
 type doneMsg struct{}
+type cloudyMsg struct{ err error }
 
 type Model struct {
 	samples <-chan source.Sample
@@ -29,6 +31,9 @@ type Model struct {
 	ne, np   int
 	memTotal float64
 
+	cloudy    *exec.Cmd // running speed test, if any
+	cloudyErr error
+
 	have              bool
 	s                 source.Sample
 	hcpu, hgpu, hpow  []float64
@@ -39,18 +44,30 @@ type Model struct {
 // New builds the model from what is known instantly (sysctl, saved cloudy runs);
 // mactop's samples arrive on samples later.
 func New(samples <-chan source.Sample, runs []source.Run) Model {
-	m := Model{samples: samples, runs: runs, names: source.ProcNames{}}
+	m := Model{samples: samples, names: source.ProcNames{}}
+	m.setRuns(runs)
 	m.name, _ = unix.Sysctl("machdep.cpu.brand_string")
 	e, _ := unix.SysctlUint32("hw.perflevel1.physicalcpu")
 	p, _ := unix.SysctlUint32("hw.perflevel0.physicalcpu")
 	mt, _ := unix.SysctlUint64("hw.memsize")
 	m.ne, m.np, m.memTotal = int(e), int(p), float64(mt)
+	return m
+}
+
+func (m *Model) setRuns(runs []source.Run) {
+	m.runs, m.cfdl, m.cful, m.cflat = runs, nil, nil, nil
 	for _, r := range runs {
 		m.cfdl = append(m.cfdl, r.Download.Mbps)
 		m.cful = append(m.cful, r.Upload.Mbps)
 		m.cflat = append(m.cflat, r.IdleLatency.MedianMs)
 	}
-	return m
+}
+
+// Stop kills a speed test still running when the program exits.
+func (m Model) Stop() {
+	if m.cloudy != nil {
+		m.cloudy.Process.Kill()
+	}
 }
 
 func (m Model) wait() tea.Msg {
@@ -104,9 +121,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
 	case tea.KeyPressMsg:
-		if k := msg.String(); k == "q" || k == "ctrl+c" {
+		switch msg.String() {
+		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "r":
+			if m.cloudy != nil {
+				break
+			}
+			cmd, err := source.StartCloudy()
+			if err != nil {
+				m.cloudyErr = err
+				break
+			}
+			m.cloudy, m.cloudyErr = cmd, nil
+			return m, func() tea.Msg { return cloudyMsg{cmd.Wait()} }
 		}
+	case cloudyMsg:
+		m.cloudy, m.cloudyErr = nil, msg.err
+		m.setRuns(source.CloudyRuns(source.CloudyDir(), 40))
 	case sampleMsg:
 		m.s, m.have = source.Sample(msg), true
 		sort.SliceStable(m.s.Processes, func(i, j int) bool {
@@ -162,7 +194,12 @@ func (m Model) layout(rows, w int) []string {
 	right = append(right, panel("sensors", "", rw, 5, m.pSens)...)
 	right = append(right, panel("io", "", rw, 5, m.pIO)...)
 	age := ""
-	if len(m.runs) > 0 {
+	switch {
+	case m.cloudy != nil:
+		age = mid.Render("testing…")
+	case m.cloudyErr != nil:
+		age = high.Render("test failed")
+	case len(m.runs) > 0:
 		age = dim.Render(m.cfAge())
 	}
 	right = append(right, panel("cloudflare", age, rw, ph-15, m.pCF)...)

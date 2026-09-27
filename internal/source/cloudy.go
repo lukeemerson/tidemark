@@ -3,6 +3,7 @@ package source
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"time"
@@ -75,4 +76,10 @@ func CloudyRuns(dir string, max int) []Run {
 func CloudyDir() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, "Library", "Application Support", "cloudflare-speed-cli", "runs")
+}
+
+// StartCloudy starts one cloudflare-speed-cli test (~30s); it saves its run to CloudyDir itself.
+func StartCloudy() (*exec.Cmd, error) {
+	cmd := exec.Command("cloudflare-speed-cli", "--silent", "--json") // --silent requires --json; the run is read back from disk
+	return cmd, cmd.Start()
 }
