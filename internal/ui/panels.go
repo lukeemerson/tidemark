@@ -57,7 +57,8 @@ func (m Model) pGPU(w, gh int) []string {
 func (m Model) pCores(w, per int) []string {
 	nc := m.ne + m.np
 	cellW := (w - 3*(per-1)) / per
-	bw := cellW - 8
+	lw := len(fmt.Sprint(max(m.ne, m.np))) + 2 // "E"/"P", digits, a space
+	bw := cellW - 5 - lw
 	var out []string
 	for i := 0; i*per < nc; i++ {
 		l := ""
@@ -74,7 +75,7 @@ func (m Model) pCores(w, per int) []string {
 			if idx <= m.ne {
 				label = fmt.Sprintf("E%d", idx)
 			}
-			l += dim.Render(fit(label, 3)) + bar(p, bw, nil) + level(p).Render(num(m.have, "%4.0f%%", p))
+			l += dim.Render(fit(label, lw)) + bar(p, bw, nil) + level(p).Render(num(m.have, "%4.0f%%", p))
 			if j < per {
 				l += "   "
 			}
@@ -216,7 +217,7 @@ func (m Model) pProc(w, n int) []string {
 	if w < 48 {
 		cols = "min"
 	}
-	nameW := map[string]int{"full": w - 50, "mid": w - 23, "min": w - 8}[cols]
+	nameW := map[string]int{"full": w - 50, "mid": w - 24, "min": w - 8}[cols]
 	hd := fit("COMMAND", nameW)
 	var out []string
 	switch cols {

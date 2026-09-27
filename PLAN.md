@@ -30,15 +30,15 @@ internal/ui/             model.go (Init/Update/View), tiles.go, panels.go, graph
 
 ## Bubble Tea mapping
 
-| zsh                              | Bubble Tea                                                    |
-|----------------------------------|---------------------------------------------------------------|
-| `draw` before mactop starts      | `View()` with `have=false` renders dashes; `Init()` returns the start-mactop cmd |
-| `zselect` on the mactop fd       | a `tea.Cmd` that reads one line and returns `sampleMsg`, re-issued in `Update` |
-| `TRAPWINCH`                      | `tea.WindowSizeMsg`                                           |
-| `q` key                          | `tea.KeyMsg` "q" / ctrl+c → kill mactop, `tea.Quit`           |
-| `box`/`hjoin`/`padv`/`vis`       | lipgloss `Border(lipgloss.ThickBorder())` + `JoinHorizontal/Vertical`; lipgloss measures width |
-| `graph` / `spark` / `bar`        | hand-written (small, pure functions; unit-test them)          |
-| ANSI palette names               | lipgloss ANSI colours 1–6, 8, so the Alacritty palette still applies |
+| zsh                         | Bubble Tea                                                                                     |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `draw` before mactop starts | `View()` with `have=false` renders dashes; `Init()` returns the start-mactop cmd               |
+| `zselect` on the mactop fd  | a `tea.Cmd` that reads one line and returns `sampleMsg`, re-issued in `Update`                 |
+| `TRAPWINCH`                 | `tea.WindowSizeMsg`                                                                            |
+| `q` key                     | `tea.KeyMsg` "q" / ctrl+c → kill mactop, `tea.Quit`                                            |
+| `box`/`hjoin`/`padv`/`vis`  | lipgloss `Border(lipgloss.ThickBorder())` + `JoinHorizontal/Vertical`; lipgloss measures width |
+| `graph` / `spark` / `bar`   | hand-written (small, pure functions; unit-test them)                                           |
+| ANSI palette names          | lipgloss ANSI colours 1–6, 8, so the Alacritty palette still applies                           |
 
 Border titles: lipgloss has no titled border, so each panel builds its top line itself
 (port `box()`'s top-line logic).

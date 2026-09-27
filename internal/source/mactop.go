@@ -5,9 +5,12 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os/exec"
 	"strconv"
+	"strings"
+	"sync/atomic"
 )
 
 // Sample is one mactop --headless sample, limited to the fields monitor draws.
@@ -91,22 +94,64 @@ func Decode(r io.Reader, out chan<- Sample) error {
 	return sc.Err()
 }
 
-// Mactop starts mactop --headless at the given interval and streams its samples.
-// The channel closes when mactop exits; stop kills it synchronously, so it can't outlive the caller.
-func Mactop(intervalMs int) (samples <-chan Sample, stop func(), err error) {
+// Collector runs mactop --headless and streams its samples.
+type Collector struct {
+	Samples <-chan Sample // closes when mactop stops; Err then says why
+	cmd     *exec.Cmd
+	stopped atomic.Bool
+	err     error
+	done    chan struct{}
+}
+
+// Mactop starts mactop --headless at the given interval.
+func Mactop(intervalMs int) (*Collector, error) {
 	cmd := exec.Command("mactop", "--headless", "--count", "0", "-i", strconv.Itoa(intervalMs))
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if err := cmd.Start(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	ch := make(chan Sample)
+	c := &Collector{Samples: ch, cmd: cmd, done: make(chan struct{})}
 	go func() {
-		defer close(ch)
-		Decode(stdout, ch)
-		cmd.Wait()
+		defer close(ch) // after err is set, so a closed Samples always has its Err ready
+		derr := Decode(stdout, ch)
+		if derr != nil {
+			cmd.Process.Kill() // a stuck mactop would block Wait on a full pipe
+		}
+		werr := cmd.Wait()
+		if !c.stopped.Load() {
+			// --count 0 never ends on its own, so any exit we didn't cause is a failure
+			switch {
+			case derr != nil:
+				c.err = fmt.Errorf("bad mactop sample: %w", derr)
+			case werr != nil:
+				c.err = fmt.Errorf("mactop: %v %s", werr, strings.TrimSpace(stderr.String()))
+			default:
+				c.err = fmt.Errorf("mactop exited %s", strings.TrimSpace(stderr.String()))
+			}
+		}
+		close(c.done)
 	}()
-	return ch, func() { cmd.Process.Kill() }, nil
+	return c, nil
+}
+
+// Stop kills mactop synchronously, so it can't outlive the caller.
+func (c *Collector) Stop() {
+	c.stopped.Store(true)
+	c.cmd.Process.Kill()
+}
+
+// Err is why mactop stopped, once Samples has closed; nil while it runs or after Stop.
+func (c *Collector) Err() error {
+	select {
+	case <-c.done:
+		return c.err
+	default:
+		return nil
+	}
 }

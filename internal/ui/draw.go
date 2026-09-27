@@ -40,6 +40,13 @@ func box(t, rt string, w, h int, lines ...string) []string {
 	if rt != "" {
 		tr = " " + rt + " "
 	}
+	// narrow boxes drop the right label first, then shorten the title
+	if lipgloss.Width(tl)+lipgloss.Width(tr) > w-4 {
+		tr = ""
+	}
+	if lipgloss.Width(tl) > w-4 {
+		tl = " " + fit(t, w-6) + " "
+	}
 	n := w - 4 - lipgloss.Width(tl) - lipgloss.Width(tr)
 	out := []string{dim.Render("┏━") + title.Render(tl) + dim.Render(rep("━", n)) + tr + dim.Render("━┓")}
 	for i := 0; i < h-2; i++ {

@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/sys/unix"
 
 	"github.com/lukeemerson/mac-monitor/internal/source"
@@ -163,50 +164,79 @@ func (m Model) View() tea.View {
 		return v
 	}
 	out := m.layout(m.h, m.w-2)
-	if len(out) > m.h {
-		out = out[:m.h]
-	}
 	for i := range out {
-		out[i] = " " + out[i]
+		// backstop only: layout already fits its lines to w
+		out[i] = ansi.Truncate(" "+out[i], m.w, "")
 	}
 	v.SetContent(strings.Join(out, "\n"))
 	return v
 }
 
+// minProc is the smallest processes box worth drawing: borders, header and two rows.
+const minProc = 5
+
+// layout fits the screen to rows × w: panels drop out, narrowest first, rather than overflow.
 func (m Model) layout(rows, w int) []string {
-	out := []string{m.head(w)}
-	out = append(out, m.tiles(w)...)
-
-	cw := (w - 1) / 2
-	out = append(out, hjoin(
-		panel("cpu", m.hCPU(), cw, 9, func(iw int) []string { return m.pCPU(iw, 6) }),
-		panel("gpu", m.hGPU(), w-cw-1, 9, func(iw int) []string { return m.pGPU(iw, 6) }),
-	)...)
-	out = append(out, hjoin(
-		panel("cores", "", cw, 7, func(iw int) []string { return m.pCores(iw, 2) }),
-		panel("power", m.hPow(), w-cw-1, 7, func(iw int) []string { return m.pPow(iw, 4) }),
-	)...)
-
-	ph := max(rows-len(out), 8)
-	cw = w * 2 / 3
-	rw := w - cw - 1
-	right := panel("memory", m.hMem(), rw, 5, m.pMem)
-	right = append(right, panel("sensors", "", rw, 5, m.pSens)...)
-	right = append(right, panel("io", "", rw, 5, m.pIO)...)
-	age := ""
-	switch {
-	case m.cloudy != nil:
-		age = mid.Render("testing…")
-	case m.cloudyErr != nil:
-		age = high.Render("test failed")
-	case len(m.runs) > 0:
-		age = dim.Render(m.cfAge())
+	if w < 8 || rows < 1 {
+		return nil
 	}
-	right = append(right, panel("cloudflare", age, rw, ph-15, m.pCF)...)
+	out := []string{m.head(w)}
+	out = append(out, m.stats(w)...)
+
+	if w >= 61 { // two-column graph panels
+		cw := (w - 1) / 2
+		if rows-len(out)-9 >= minProc {
+			out = append(out, hjoin(
+				panel("cpu", m.hCPU(), cw, 9, func(iw int) []string { return m.pCPU(iw, 6) }),
+				panel("gpu", m.hGPU(), w-cw-1, 9, func(iw int) []string { return m.pGPU(iw, 6) }),
+			)...)
+		}
+		ch := (m.ne+m.np+1)/2 + 2 // two cores per row
+		if rows-len(out)-ch >= minProc {
+			out = append(out, hjoin(
+				panel("cores", "", cw, ch, func(iw int) []string { return m.pCores(iw, 2) }),
+				panel("power", m.hPow(), w-cw-1, ch, func(iw int) []string { return m.pPow(iw, ch-3) }),
+			)...)
+		}
+	}
+
+	ph := rows - len(out)
+	if ph < 3 {
+		return out[:min(len(out), rows)]
+	}
+	if w < 61 {
+		return append(out, panel("processes", "", w, ph, func(iw int) []string { return m.pProc(iw, ph-3) })...)
+	}
+	cw := w * 2 / 3
+	rw := w - cw - 1
+	var right []string
+	add := func(t, rt string, h int, content func(int) []string) {
+		if len(right)+h <= ph {
+			right = append(right, panel(t, rt, rw, h, content)...)
+		}
+	}
+	add("memory", m.hMem(), 5, m.pMem)
+	add("sensors", "", 5, m.pSens)
+	add("io", "", 5, m.pIO)
+	if cf := ph - len(right); cf >= 4 {
+		add("cloudflare", m.cfLabel(), cf, m.pCF)
+	}
 	return append(out, hjoin(
 		panel("processes", "", cw, ph, func(iw int) []string { return m.pProc(iw, ph-3) }),
 		right,
 	)...)
+}
+
+func (m Model) cfLabel() string {
+	switch {
+	case m.cloudy != nil:
+		return mid.Render("testing…")
+	case m.cloudyErr != nil:
+		return high.Render("test failed")
+	case len(m.runs) > 0:
+		return dim.Render(m.cfAge())
+	}
+	return ""
 }
 
 func (m Model) head(w int) string {
@@ -214,25 +244,24 @@ func (m Model) head(w int) string {
 	r := mid.Render("● starting mactop…")
 	if m.have {
 		r = dim.Render(time.Now().Format("15:04:05"))
-		if b := m.batt(); b != "" {
+		if b := m.batt(); b != "" && lipgloss.Width(l)+lipgloss.Width(b)+20 <= w {
 			r = dim.Render("battery "+b+"   ") + r
 		}
 	}
-	return spread(l, r, w)
-}
-
-func tile(name, val string, hist []float64, top float64, col *lipgloss.Style, w int) []string {
-	iw := w - 4
-	sp := spark(hist, iw, top)
-	if col != nil {
-		sp = col.Render(sp)
+	if lipgloss.Width(l)+lipgloss.Width(r)+1 > w {
+		l = title.Render(m.name) // drop the core counts before the clock
 	}
-	return box(name, "", w, 4, center(val, iw), sp)
+	return pad(spread(l, r, w), w)
 }
 
-func (m Model) tiles(w int) []string {
-	tw := (w - 7) / 8
-	last := w - 7*tw - 7
+type stat struct {
+	name, val string
+	hist      []float64
+	top       float64
+	col       *lipgloss.Style
+}
+
+func (m Model) statList() []stat {
 	temp := num(m.have, "%.0f°", m.s.SoC.CPUTemp)
 	if m.have {
 		temp = title.Inherit(level(m.s.SoC.CPUTemp)).Render(temp)
@@ -242,14 +271,56 @@ func (m Model) tiles(w int) []string {
 		r := m.runs[len(m.runs)-1]
 		dl, ul, lat = r.Download.Mbps, r.Upload.Mbps, r.IdleLatency.MedianMs
 	}
-	return hjoin(
-		tile("cpu", m.hCPU(), m.hcpu, 100, nil, tw),
-		tile("gpu", m.hGPU(), m.hgpu, 100, &gpu, tw),
-		tile("power", m.hPow(), m.hpow, hmax(m.hpow, 1), &power, tw),
-		tile("mem", m.hMem(), m.hmem, 100, &mid, tw),
-		tile("temp", temp, m.htc, 110, &high, tw),
-		tile("↓ cf", title.Inherit(net).Render(fmt.Sprintf("%.0f Mbps", dl)), m.cfdl, hmax(m.cfdl, 1), &net, tw),
-		tile("↑ cf", title.Inherit(power).Render(fmt.Sprintf("%.0f Mbps", ul)), m.cful, hmax(m.cful, 1), &power, tw),
-		tile("ping", title.Render(fmt.Sprintf("%.0f ms", lat)), m.cflat, hmax(m.cflat, 1), &dim, last),
-	)
+	return []stat{
+		{"cpu", m.hCPU(), m.hcpu, 100, nil},
+		{"gpu", m.hGPU(), m.hgpu, 100, &gpu},
+		{"power", m.hPow(), m.hpow, hmax(m.hpow, 1), &power},
+		{"mem", m.hMem(), m.hmem, 100, &mid},
+		{"temp", temp, m.htc, 110, &high},
+		{"↓ cf", title.Inherit(net).Render(fmt.Sprintf("%.0f Mbps", dl)), m.cfdl, hmax(m.cfdl, 1), &net},
+		{"↑ cf", title.Inherit(power).Render(fmt.Sprintf("%.0f Mbps", ul)), m.cful, hmax(m.cful, 1), &power},
+		{"ping", title.Render(fmt.Sprintf("%.0f ms", lat)), m.cflat, hmax(m.cflat, 1), &dim},
+	}
+}
+
+func (st stat) spark(w int) string {
+	sp := spark(st.hist, w, st.top)
+	if st.col != nil {
+		sp = st.col.Render(sp)
+	}
+	return sp
+}
+
+// stats shows the summary: 8 tiles in a row when wide, two rows of 4 when medium,
+// one line per stat when narrow.
+func (m Model) stats(w int) []string {
+	ss := m.statList()
+	switch {
+	case w >= 103:
+		return tileRow(ss, w)
+	case w >= 51:
+		return append(tileRow(ss[:4], w), tileRow(ss[4:], w)...)
+	}
+	var out []string
+	for _, st := range ss {
+		sw := w - 16
+		out = append(out, pad(dim.Render(fit(st.name, 6))+pad(st.val, 9)+" "+st.spark(max(sw, 0)), w))
+	}
+	return out
+}
+
+// tileRow splits w evenly between boxed tiles; the last takes the remainder.
+func tileRow(ss []stat, w int) []string {
+	n := len(ss)
+	tw := (w - (n - 1)) / n
+	var blocks [][]string
+	for i, st := range ss {
+		bw := tw
+		if i == n-1 {
+			bw = w - (n-1)*(tw+1)
+		}
+		iw := bw - 4
+		blocks = append(blocks, box(st.name, "", bw, 4, center(st.val, iw), st.spark(iw)))
+	}
+	return hjoin(blocks...)
 }
