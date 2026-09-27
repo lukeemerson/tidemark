@@ -1,0 +1,326 @@
+#!/usr/bin/env zsh
+# System monitor: mactop's headless JSON stream drawn btop-style in the terminal.
+# Port of ~/.config/nvim/lua/volt_monitor.lua. q or ctrl-c quits.
+emulate -L zsh
+setopt extendedglob
+zmodload zsh/mathfunc zsh/zselect
+
+(($+commands[mactop])) || {
+	print -u2 "monitor: mactop not found"
+	exit 1
+}
+(($+commands[jq])) || {
+	print -u2 "monitor: jq not found"
+	exit 1
+}
+
+HIST=400 # samples kept; graphs show the tail that fits
+XPAD=2
+
+# terminal palette, so the theme applies
+E=$'\e'
+R="${E}[0m" TITLE="${E}[1m" DIM="${E}[90m" TEXT="${E}[39m"
+LOW="${E}[32m" MID="${E}[33m" HIGH="${E}[31m" GPU="${E}[34m" POWER="${E}[36m"
+
+level() {
+	if (($1 >= 80)); then REPLY=$HIGH; elif (($1 >= 50)); then REPLY=$MID; else REPLY=$LOW; fi
+}
+
+# one line of shell assignments per sample
+JQ='sub("^[\\[,]"; "") | select(startswith("{")) | fromjson
+  | (.processes // [] | sort_by(-.cpu_percent)) as $p
+  | .soc_metrics as $s | .net_disk as $n | .memory as $m | .system_info as $i
+  | "name=\($i.name|@sh) ne=\($i.e_core_count) np=\($i.p_core_count) ngc=\($i.gpu_core_count)"
+  + " cpu=\(.cpu_usage) gpu=\(.gpu_usage) cores=(\(.core_usages|map(tostring)|join(" ")))"
+  + " efreq=\($s.e_cluster_freq_mhz) pfreq=\($s.p_cluster_freq_mhz) gfreq=\($s.gpu_freq_mhz) ane=\($s.ane_active)"
+  + " pw=\($s.total_power) pwc=\($s.cpu_power) pwg=\($s.gpu_power) pwa=\($s.ane_power) pwd=\($s.dram_power)"
+  + " tc=\($s.cpu_temp) tg=\($s.gpu_temp) dr=\($s.dram_read_bw_gbs) dw=\($s.dram_write_bw_gbs)"
+  + " mu=\($m.used) mt=\($m.total) su=\($m.swap_used) st=\($m.swap_total)"
+  + " nin=\($n.in_bytes_per_sec) nout=\($n.out_bytes_per_sec) dkr=\($n.read_kbytes_per_sec) dkw=\($n.write_kbytes_per_sec)"
+  + " thermal=\(.thermal_state|@sh) fan=\(.fans[0].rpm // 0)"
+  + " vname=\(.volumes[0].name // ""|@sh) vpct=\(.volumes[0].used_percent // -1)"
+  + " batt=\(if .battery.present then "\(.battery.state) \(.battery.percent)%" else "" end|@sh)"
+  + " ppid=(\($p|map(.pid|tostring)|join(" "))) pcmd=(\($p|map(.command|@sh)|join(" ")))"
+  + " pcpu=(\($p|map(.cpu_percent|tostring)|join(" "))) pgpu=(\($p|map(.gpu_ms_per_sec|tostring)|join(" ")))"
+  + " pmem=(\($p|map(.memory_percent|tostring)|join(" "))) prss=(\($p|map(.rss_kb|tostring)|join(" ")))"'
+
+# ---------------------------------------------------------------------------
+# formatting
+
+vis() {
+	local s=${1//${E}\[[0-9;]#m/}
+	REPLY=${#s}
+} # visible width
+
+fit() { # pad or truncate $1 to $2 columns
+	if ((${#1} > $2)); then REPLY="${1[1,$2-1]}…"; else
+		REPLY="${(r:$2:)1}"
+	fi
+}
+
+rate() {
+	local b=$1 u=(B K M G) i=1
+	while ((b >= 1024 && i < 4)); do ((b /= 1024.0 , i++)); done
+	REPLY=$(printf "%.1f %s/s" $b $u[i])
+}
+
+gb() { REPLY=$(printf "%.1f" $(($1 / 1073741824.0))); }
+
+spread() { # left, right pushed to the edge of width $3
+	vis $1
+	local n=$REPLY
+	vis $2
+	((n = $3 - n - REPLY , n < 1 && (n = 1)))
+	REPLY="$1${(l:n:: :)${:-}}$2"
+}
+
+title() { REPLY="$TITLE $1 $R"; }
+
+bar() { # percent, width, [colour]
+	local p=$(($1 > 100 ? 100 : $1)) on off col=$3
+	on=$((int(p / 100.0 * $2 + 0.5)))
+	off=$(($2 - on))
+	[[ -n $col ]] || {
+		level $1
+		col=$REPLY
+	}
+	REPLY="$col${(l:$on::■:)${:-}}$DIM${(l:$off::■:)${:-}}$R"
+	((on)) || REPLY="$DIM${(l:$2::■:)${:-}}$R"
+}
+
+# braille area graph: 2 samples per cell, 4 dots per cell row, filled from the bottom
+typeset -a CHARS FILL_L FILL_R
+for i ({0..255}) CHARS[i+1]=${(#)$(( 10240 + i ))}
+FILL_L=(0 64 68 70 71)     # left dot column, bottom → top: 0x40 0x04 0x02 0x01
+FILL_R=(0 128 160 176 184) # right: 0x80 0x20 0x10 0x08
+
+graph() { # history array name, w, h, max -> reply lines, coloured by height band
+	local -a vals=("${(@P)1}") cells
+	local w=$2 h=$3 max=$4 n=${#${(@P)1}} c side idx v dots r k row
+	cells=(${(s: :)${(l:$((w * h * 2)):: 0:)${:-}}})
+	for ((c = 1; c <= w; c++)); do
+		for side in 1 2; do
+			idx=$((n - 2 * w + (c - 1) * 2 + side))
+			((idx >= 1)) || continue
+			v=$vals[idx]
+			dots=$((int((v / max > 1 ? 1 : v / max) * h * 4 + 0.5)))
+			((v > 0 && dots == 0)) && dots=1
+			for ((r = h; r >= 1 && dots > 0; r--)); do
+				k=$((dots > 4 ? 4 : dots))
+				if ((side == 1)); then ((cells[(r-1)*w+c] += FILL_L[k+1])); else
+					((cells[(r-1)*w+c] += FILL_R[k+1]))
+				fi
+				((dots -= k))
+			done
+		done
+	done
+	reply=()
+	for ((r = 1; r <= h; r++)); do
+		row=
+		for ((c = 1; c <= w; c++)); do
+			row+=$CHARS[cells[(r-1)*w+c]+1]
+		done
+		level $(((h - r + 0.5) / h * 100))
+		reply+=("$REPLY$row$R")
+	done
+}
+
+# ---------------------------------------------------------------------------
+# panels
+
+cpu_col() { # width -> col_lines
+	local w=$1 l r cell_w bw row side i p label
+	col=()
+	title CPU
+	l=$REPLY
+	level $cpu
+	l+="$REPLY$(printf '%3.0f%%' $cpu)$R"
+	spread $l "$DIM$(printf 'E %d MHz  P %d MHz' $efreq $pfreq)$R" $w
+	col+=($REPLY)
+	graph hcpu $w 6 100
+	col+=($reply "")
+
+	# cores two per row; mactop lists efficiency cores first
+	cell_w=$(((w - 3) / 2))
+	bw=$((cell_w - 9))
+	for row in {0..4}; do
+		l=
+		for side in 1 2; do
+			i=$((row * 2 + side))
+			p=$cores[i]
+			[[ -n $p ]] || continue
+			((i <= ne)) && label=E$i || label=P$((i - ne))
+			fit $label 3
+			l+="$DIM$REPLY$R"
+			bar $p $bw
+			l+=$REPLY
+			level $p
+			l+="$REPLY$(printf '%4.0f%%' $p)$R"
+			((side == 1)) && l+="   "
+		done
+		col+=("$l")
+	done
+	col+=("")
+
+	local mp=$((mu * 100.0 / mt))
+	gb $mu
+	l=$REPLY
+	gb $mt
+	l="$l / $REPLY GB"
+	title MEM
+	r=$REPLY
+	level $mp
+	l="$r$REPLY$l$R"
+	gb $su
+	r=$REPLY
+	gb $st
+	r="${DIM}swap $r / $REPLY GB$R"
+	spread $l $r $w
+	col+=($REPLY)
+	bar $mp $w
+	col+=($REPLY)
+	col+=("$DIM DRAM $R$TEXT$(printf '↓ %.1f  ↑ %.1f GB/s' $dr $dw)$R")
+}
+
+soc_col() { # width -> col_lines
+	local w=$1 l r pmax=1 v i
+	col=()
+	title GPU
+	l="$REPLY$GPU$(printf '%3.0f%%' $gpu)$R"
+	r="$DIM$(printf '%d MHz · %d cores   ANE %.0f%%' $gfreq $ngc $ane)$R"
+	spread $l $r $w
+	col+=($REPLY)
+	graph hgpu $w 6 100
+	col+=($reply "")
+
+	for v ($hpow) ((v > pmax)) && pmax=$v
+	title POWER
+	l="$REPLY$POWER$(printf '%.1f W' $pw)$R"
+	r="$DIM$(printf 'CPU %.1f  GPU %.1f  ANE %.1f  DRAM %.1f' $pwc $pwg $pwa $pwd)$R"
+	spread $l $r $w
+	col+=($REPLY)
+	graph hpow $((w - 7)) 4 $pmax
+	for ((i = 1; i <= $#reply; i++)); do
+		((i == 1)) && l="$DIM$(printf '%5.1fW ' $pmax)$R" || l="       "
+		col+=("$l$reply[i]")
+	done
+	col+=("")
+
+	title TEMP
+	l=$REPLY
+	level $tc
+	l+="$REPLY$(printf 'CPU %.0f°  ' $tc)$R"
+	level $tg
+	l+="$REPLY$(printf 'GPU %.0f°' $tg)$R"
+	spread $l "$DIM$thermal · fan $fan rpm$R" $w
+	col+=($REPLY)
+	rate $nin
+	l=$REPLY
+	rate $nout
+	col+=("$TITLE NET  $R$TEXT↓ $l  ↑ $REPLY$R")
+	rate $((dkr * 1024))
+	l=$REPLY
+	rate $((dkw * 1024))
+	l="$TITLE DISK $R${TEXT}r $l  w $REPLY$R"
+	r=
+	if ((vpct >= 0)); then
+		level $vpct
+		r="$REPLY$vname $(printf '%.0f%%' $vpct)$R"
+	fi
+	spread $l $r $w
+	col+=($REPLY)
+}
+
+proc_lines() { # width, rows -> col_lines
+	local w=$1 nproc=$2 name_w=$(($1 - 40)) i a b
+	fit PID 8
+	a=$REPLY
+	fit COMMAND $name_w
+	col=("$TITLE $a$REPLY$(printf '%7s %10s %7s %10s' CPU% 'GPU ms/s' MEM% RSS)$R")
+	for ((i = 1; i <= nproc; i++)); do
+		if [[ -n $ppid[i] ]]; then
+			fit $ppid[i] 8
+			a=$REPLY
+			fit $pcmd[i] $name_w
+			b=$REPLY
+			level $pcpu[i]
+			col+=("$DIM $a$R$TEXT$b$R$REPLY$(printf '%7.1f' $pcpu[i])$R$GPU$(printf '%11.1f' $pgpu[i])$R$DIM$(printf '%8.1f%8.0f MB' $pmem[i] $((prss[i] / 1024.0)))$R")
+		else
+			col+=("")
+		fi
+	done
+}
+
+# ---------------------------------------------------------------------------
+
+draw() {
+	local rows cols w cw nproc i l pad=${(l:XPAD:: :)${:-}}
+	local -a out left right col
+	read rows cols < <(stty size </dev/tty)
+	w=$((cols - 2 * XPAD))
+	if [[ -z $name ]]; then
+		out=("$DIM waiting for mactop…$R")
+	else
+		l="$TITLE$name$R$DIM  ·  ${ne}E + ${np}P CPU  ·  $ngc-core GPU$R"
+		spread $l "$DIM${batt:+$batt   }$(date +%H:%M:%S)$R" $w
+		out=($REPLY "")
+		cw=$(((w - 4) / 2))
+		cpu_col $cw
+		left=($col)
+		soc_col $cw
+		right=($col)
+		for ((i = 1; i <= $#left; i++)); do
+			vis $left[i]
+			out+=("$left[i]${(l:$(( cw - REPLY + 4 )):: :)${:-}}$right[i]")
+		done
+		nproc=$((rows - 21 > 20 ? 20 : rows - 21))
+		((nproc < 0)) && nproc=0
+		proc_lines $w $nproc
+		out+=("" $col)
+	fi
+	# home, then each row cleared to the edge; leftover rows below are wiped
+	local frame="${E}[H"
+	for ((i = 1; i <= $#out && i <= rows; i++)); do
+		frame+="$pad$out[i]${E}[K"
+		((i < rows)) && frame+=$'\n'
+	done
+	print -rn -- "$frame${E}[J"
+}
+
+push() {
+	hcpu+=($cpu) hgpu+=($gpu) hpow+=($pw)
+	(($#hcpu > HIST)) && shift hcpu && shift hgpu && shift hpow
+}
+
+typeset -a hcpu hgpu hpow cores ppid pcmd pcpu pgpu pmem prss
+
+cleanup() {
+	stty $saved_stty </dev/tty
+	print -rn -- "${E}[?25h${E}[?1049l"
+	exec {fd}<&-
+}
+saved_stty=$(stty -g </dev/tty)
+trap 'cleanup; exit 0' INT TERM
+TRAPWINCH() { draw; }
+
+stty -echo -icanon min 0 time 0 </dev/tty
+print -rn -- "${E}[?1049h${E}[?25l${E}[H${E}[2J"
+exec {fd}< <(mactop --headless --count 0 -i 1000 </dev/null 2>/dev/null | jq -R --unbuffered -r "$JQ")
+draw
+
+# wait on the stream and the keyboard together
+local line key
+while :; do
+	zselect -r $fd 0 || continue # a resize interrupts the wait
+	if (($reply[(I)$fd])); then
+		read -r -u $fd line || break
+		eval "$line"
+		push
+		draw
+	fi
+	if (($reply[(I)0])); then
+		read -k 1 key
+		[[ $key == q ]] && break
+	fi
+done
+cleanup
