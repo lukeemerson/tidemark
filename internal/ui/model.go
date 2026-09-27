@@ -43,7 +43,7 @@ type Model struct {
 	s                 source.Sample
 	sys               source.Sys
 	hcpu, hgpu, hpow  []float64
-	hmem, htc         []float64
+	hmem, htc, htg    []float64 // htc/htg: cpu and gpu temperature
 	hload, hswap      []float64
 	hnin, hnout       []float64 // network bytes/s
 	hdr, hdw          []float64 // disk bytes/s
@@ -174,6 +174,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.hpow = push(m.hpow, m.s.SoC.TotalPower)
 		m.hmem = push(m.hmem, m.memPct())
 		m.htc = push(m.htc, m.s.SoC.CPUTemp)
+		m.htg = push(m.htg, m.s.SoC.GPUTemp)
 		m.sys = source.ReadSys()
 		m.hload = push(m.hload, m.sys.Load[0])
 		m.hswap = push(m.hswap, m.s.Memory.SwapUsed)
@@ -372,10 +373,14 @@ func (m Model) stats(w int) []string {
 	case w >= 51:
 		return append(tileRow(ss[:4], w), tileRow(ss[4:], w)...)
 	}
+	return statLines(ss, w)
+}
+
+// statLines is one line per stat: name, value, sparkline filling the rest of w.
+func statLines(ss []stat, w int) []string {
 	var out []string
 	for _, st := range ss {
-		sw := w - 16
-		out = append(out, pad(dim.Render(fit(st.name, 6))+pad(st.val, 9)+" "+st.spark(max(sw, 0)), w))
+		out = append(out, pad(dim.Render(fit(st.name, 6))+pad(st.val, 9)+" "+st.spark(max(w-16, 0)), w))
 	}
 	return out
 }

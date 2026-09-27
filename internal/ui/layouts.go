@@ -30,6 +30,9 @@ func init() { // in init: the draw functions reach layouts through head()
 		}, Model.computeLayout},
 		{"memory", func(_ Model, rows, w int) bool { return w >= 70 && rows >= 23 }, Model.memoryLayout},
 		{"io", func(_ Model, rows, w int) bool { return w >= 70 && rows >= 24 }, Model.ioLayout},
+		{"glance", func(_ Model, rows, w int) bool { return w >= 40 && rows >= 16 }, Model.glanceLayout},
+		{"wall", func(_ Model, rows, w int) bool { return w >= 60 && rows >= 25 }, Model.wallLayout},
+		{"thermal", func(_ Model, rows, w int) bool { return w >= 70 && rows >= 24 }, Model.thermalLayout},
 	}
 }
 

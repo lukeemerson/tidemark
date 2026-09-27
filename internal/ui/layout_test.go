@@ -86,7 +86,7 @@ func TestNoEmptyBoxes(t *testing.T) {
 				r := []rune(ansi.Strip(l))
 				var vs []int
 				for x, c := range r {
-					if strings.ContainsRune("│┃║╎╏", c) {
+					if strings.ContainsRune("│┃║╎╏|▌▐", c) {
 						vs = append(vs, x)
 					}
 				}

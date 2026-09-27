@@ -33,15 +33,27 @@ func level(v float64) lipgloss.Style {
 func rep(s string, n int) string { return strings.Repeat(s, max(n, 0)) }
 
 // border is a frame's line set; each layout draws with its own weight.
-type border struct{ tl, tr, bl, br, h, v string }
+// Most sets repeat one horizontal and one vertical; block frames use different glyphs per side,
+// and rules has no sides at all (open drops the bottom edge too).
+type border struct {
+	tl, tr, bl, br string
+	h, hb          string // top and bottom horizontals
+	vl, vr         string // left and right verticals
+	open           bool
+}
+
+func lines(tl, tr, bl, br, h, v string) border { return border{tl, tr, bl, br, h, h, v, v, false} }
 
 var (
-	heavy   = border{"┏", "┓", "┗", "┛", "━", "┃"}
-	rounded = border{"╭", "╮", "╰", "╯", "─", "│"}
-	double  = border{"╔", "╗", "╚", "╝", "═", "║"}
-	square  = border{"┌", "┐", "└", "┘", "─", "│"}
-	dashed  = border{"┌", "┐", "└", "┘", "╌", "╎"}
-	hdashed = border{"┏", "┓", "┗", "┛", "╍", "╏"}
+	heavy   = lines("┏", "┓", "┗", "┛", "━", "┃")
+	rounded = lines("╭", "╮", "╰", "╯", "─", "│")
+	double  = lines("╔", "╗", "╚", "╝", "═", "║")
+	square  = lines("┌", "┐", "└", "┘", "─", "│")
+	dashed  = lines("┌", "┐", "└", "┘", "╌", "╎")
+	hdashed = lines("┏", "┓", "┗", "┛", "╍", "╏")
+	ascii   = lines("+", "+", "+", "+", "-", "|")
+	block   = border{"▛", "▜", "▙", "▟", "▀", "▄", "▌", "▐", false}
+	rules   = border{"─", "─", " ", " ", "─", " ", " ", " ", true}
 )
 
 // box draws a heavy frame; see border.box.
@@ -69,9 +81,12 @@ func (b border) box(t, rt string, w, h int, lines ...string) []string {
 		if i < len(lines) {
 			l = lines[i]
 		}
-		out = append(out, dim.Render(b.v)+" "+pad(l, iw)+" "+dim.Render(b.v))
+		out = append(out, dim.Render(b.vl)+" "+pad(l, iw)+" "+dim.Render(b.vr))
 	}
-	return append(out, dim.Render(b.bl+rep(b.h, w-2)+b.br))
+	if b.open {
+		return append(out, rep(" ", w))
+	}
+	return append(out, dim.Render(b.bl+rep(b.hb, w-2)+b.br))
 }
 
 // fit cuts s to n characters with a trailing … or pads it with spaces to n.
