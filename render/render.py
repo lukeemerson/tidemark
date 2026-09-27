@@ -10,8 +10,17 @@ PAL = {
     "brightwhite": "#ede3d6", "default": "#d6cbbd",
 }
 
+class Screen(pyte.Screen):
+    # pyte lacks CBT (ESC[Z); Bubble Tea moves the cursor with it
+    def cursor_back_tab(self, count=None, *a, **k):
+        for _ in range(count or 1):
+            stops = [t for t in sorted(self.tabstops) if t < self.cursor.x]
+            self.cursor.x = stops[-1] if stops else 0
+
+pyte.Stream.csi = dict(pyte.Stream.csi, Z="cursor_back_tab")
+
 src, cols, rows = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-screen = pyte.Screen(cols, rows)
+screen = Screen(cols, rows)
 stream = pyte.ByteStream(screen)
 data = open(src, "rb").read()
 # stop at the last full frame (cleanup exits the alt screen)
