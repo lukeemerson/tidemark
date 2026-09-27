@@ -17,7 +17,7 @@ func replayed(t *testing.T) Model {
 	}
 	ch := make(chan source.Sample)
 	go func() { source.Decode(f, ch); close(ch) }()
-	m := New(nil, source.CloudyRuns(source.CloudyDir(), 40))
+	m := New(nil, source.CloudyRuns(source.CloudyDir(), 40), "", nil)
 	for s := range ch {
 		mm, _ := m.Update(sampleMsg(s))
 		m = mm.(Model)
@@ -25,30 +25,34 @@ func replayed(t *testing.T) Model {
 	return m
 }
 
-// TestSweep checks sizes from 1×1 up, before and after data: lines fit the width, the frame
+// TestSweep checks every layout at sizes from 1×1 up, before and after data: lines fit the width, the frame
 // fits the rows, and boxes are never cut open at the bottom.
 func TestSweep(t *testing.T) {
 	live := replayed(t)
-	lazy := New(nil, source.CloudyRuns(source.CloudyDir(), 40))
+	lazy := New(nil, source.CloudyRuns(source.CloudyDir(), 40), "", nil)
 	sizes := [][2]int{{1, 1}, {5, 3}, {20, 20}, {30, 15}, {40, 24}, {60, 20}, {66, 27}, {80, 24}, {100, 30}, {140, 42}}
 	for _, st := range []struct {
 		name string
 		m    Model
 	}{{"lazy", lazy}, {"live", live}} {
-		for _, sz := range sizes {
-			cols, rows := sz[0], sz[1]
-			out := st.m.layout(rows, cols-2)
-			if len(out) > rows {
-				t.Errorf("%s %dx%d: %d lines > %d rows", st.name, cols, rows, len(out), rows)
-			}
-			for i, l := range out {
-				if n := ansi.StringWidth(l); n > cols-2 {
-					t.Errorf("%s %dx%d line %d: width %d > %d: %q", st.name, cols, rows, i, n, cols-2, ansi.Strip(l))
+		for li := range layouts {
+			for _, sz := range sizes {
+				cols, rows := sz[0], sz[1]
+				m := st.m
+				m.lay = li
+				out := m.layout(rows, cols-2)
+				if len(out) > rows {
+					t.Errorf("%s/%s %dx%d: %d lines > %d rows", st.name, layouts[li].name, cols, rows, len(out), rows)
 				}
-			}
-			if len(out) > 0 && strings.ContainsRune(ansi.Strip(strings.Join(out, "")), '┏') &&
-				!strings.ContainsRune(ansi.Strip(out[len(out)-1]), '┗') {
-				t.Errorf("%s %dx%d: last line isn't a bottom border: %q", st.name, cols, rows, ansi.Strip(out[len(out)-1]))
+				for i, l := range out {
+					if n := ansi.StringWidth(l); n > cols-2 {
+						t.Errorf("%s/%s %dx%d line %d: width %d > %d: %q", st.name, layouts[li].name, cols, rows, i, n, cols-2, ansi.Strip(l))
+					}
+				}
+				if len(out) > 0 && strings.ContainsRune(ansi.Strip(strings.Join(out, "")), '┏') &&
+					!strings.ContainsRune(ansi.Strip(out[len(out)-1]), '┗') {
+					t.Errorf("%s/%s %dx%d: last line isn't a bottom border: %q", st.name, layouts[li].name, cols, rows, ansi.Strip(out[len(out)-1]))
+				}
 			}
 		}
 	}

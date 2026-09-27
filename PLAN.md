@@ -55,3 +55,46 @@ Border titles: lipgloss has no titled border, so `box()` in draw.go builds the t
 2. ✅ Model, rendering the header and tiles only. Check it against the zsh version side by side.
 3. ✅ Remaining panels, then resize and quit handling.
 4. ✅ Replace `bin/monitor`, and remove `drafts/` and `render/` once the Go version matches.
+5. ✅ `l`/`L` layouts (tiles · sidebar · instrument), each with its own line weight and skeleton;
+   choice saved to `~/.config/mac-monitor/config.json`.
+6. On-demand config UI (btop-style, closer to mactop's): more settings behind one menu.
+
+## Expansion: why this one is better
+
+Identity: **the monitor that explains what changed, and lets you rewind to see it.**
+The baseline is high: [iStat Menus](https://bjango.com/mac/istatmenus/) has history, sensors,
+per-app stats and alert rules; [mactop](https://github.com/metaspartan/mactop) owns Apple Silicon
+terminal monitoring. More metrics alone won't stand out. The edge is connecting signals already
+here: Apple Silicon metrics, process activity, power, thermals, saved network-quality tests.
+
+Strongest combination: rewind + change detection + project grouping. Together they answer
+*when did it happen, what changed, and which piece of my work was involved?*
+
+1. **Rewind the whole machine view** (build first). Press a key when something stutters, then
+   scrub back through synchronized CPU, GPU, memory, thermals and process snapshots; every
+   panel follows one cursor. Needs timestamped samples plus process history (the 400-sample
+   graph histories are a start). Success: identify what was active during a vanished spike
+   within 30 seconds.
+2. **"What changed?" feed.** Meaningful events beside the graphs ("compilers became the top CPU
+   consumers", "swap grew 800 MB in two minutes", "power stayed high after the build").
+   Select one to see its measurements. Start with explicit rules; keep observations separate
+   from suspected causes.
+3. **Organize activity by work.** Group processes into projects/sessions ("mac-monitor build",
+   "editor + language servers", "browser", "local model"), expandable to the process tree.
+   Useful for agent-heavy work: which session spawned the busy compiler or left a server
+   running. Needs process ancestry and session metadata.
+4. **Before-and-after mode.** Mark a baseline, change something, compare: idle power after
+   closing an app, peak memory of a new build, loaded latency after switching networks. Show
+   duration and workload context so comparisons stay fair.
+5. **"My Mac or my connection?"** Combine local pressure with network observations as separate
+   findings ("local load normal", "latency rose during upload"). Keep saved test results
+   visibly dated; live diagnosis needs extra lightweight probes.
+6. **Learn what's normal for this machine.** Flag deviations under comparable conditions
+   (plugged in vs battery, idle vs building): "idle power above your usual range" beats a
+   universal red threshold. Show the baseline and its sample count.
+7. **Compact view with drill-down.** In a small pane: current condition, the biggest change, a
+   few trends; one key expands to the full investigation view. Stable panel positions; bright
+   accents only for the selection and meaningful changes.
+8. **Tiny incident recordings.** Export a time window (graphs, events, process summaries);
+   reopen it in the monitor or render a readable report, for intermittent problems and
+   sharing evidence.

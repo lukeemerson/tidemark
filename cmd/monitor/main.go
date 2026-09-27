@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/lukeemerson/mac-monitor/internal/config"
 	"github.com/lukeemerson/mac-monitor/internal/source"
 	"github.com/lukeemerson/mac-monitor/internal/ui"
 )
@@ -21,7 +22,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, "monitor:", err)
 		os.Exit(1)
 	}
-	m := ui.New(col.Samples, source.CloudyRuns(source.CloudyDir(), 40))
+	cfg := config.Load()
+	save := func(layout string) {
+		cfg.Layout = layout
+		config.Save(cfg)
+	}
+	m := ui.New(col.Samples, source.CloudyRuns(source.CloudyDir(), 40), cfg.Layout, save)
 	final, err := tea.NewProgram(m).Run()
 	cerr := col.Err() // read before Stop: only set if mactop ended on its own
 	col.Stop()

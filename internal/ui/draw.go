@@ -32,9 +32,21 @@ func level(v float64) lipgloss.Style {
 
 func rep(s string, n int) string { return strings.Repeat(s, max(n, 0)) }
 
-// box draws a heavy frame w wide and h tall: title and optional right label set into the top
+// border is a frame's line set; each layout draws with its own weight.
+type border struct{ tl, tr, bl, br, h, v string }
+
+var (
+	heavy   = border{"┏", "┓", "┗", "┛", "━", "┃"}
+	rounded = border{"╭", "╮", "╰", "╯", "─", "│"}
+	double  = border{"╔", "╗", "╚", "╝", "═", "║"}
+)
+
+// box draws a heavy frame; see border.box.
+func box(t, rt string, w, h int, lines ...string) []string { return heavy.box(t, rt, w, h, lines...) }
+
+// box draws a frame w wide and h tall: title and optional right label set into the top
 // border, lines padded or cut to the inner width.
-func box(t, rt string, w, h int, lines ...string) []string {
+func (b border) box(t, rt string, w, h int, lines ...string) []string {
 	iw := w - 4
 	tl, tr := " "+t+" ", ""
 	if rt != "" {
@@ -48,15 +60,15 @@ func box(t, rt string, w, h int, lines ...string) []string {
 		tl = " " + fit(t, w-6) + " "
 	}
 	n := w - 4 - lipgloss.Width(tl) - lipgloss.Width(tr)
-	out := []string{dim.Render("┏━") + title.Render(tl) + dim.Render(rep("━", n)) + tr + dim.Render("━┓")}
+	out := []string{dim.Render(b.tl+b.h) + title.Render(tl) + dim.Render(rep(b.h, n)) + tr + dim.Render(b.h+b.tr)}
 	for i := 0; i < h-2; i++ {
 		l := ""
 		if i < len(lines) {
 			l = lines[i]
 		}
-		out = append(out, dim.Render("┃")+" "+pad(l, iw)+" "+dim.Render("┃"))
+		out = append(out, dim.Render(b.v)+" "+pad(l, iw)+" "+dim.Render(b.v))
 	}
-	return append(out, dim.Render("┗"+rep("━", w-2)+"┛"))
+	return append(out, dim.Render(b.bl+rep(b.h, w-2)+b.br))
 }
 
 // fit cuts s to n characters with a trailing … or pads it with spaces to n.
@@ -112,14 +124,38 @@ func rate(have bool, b float64) string {
 func gb(v float64) string { return fmt.Sprintf("%.1f", v/1073741824) }
 
 // bar is a p% meter w wide: ■ for the filled part in col (or the level colour), dim · after.
-func bar(p float64, w int, col *lipgloss.Style) string {
-	p = min(p, 100)
-	on := int(p/100*float64(w) + 0.5)
+func bar(p float64, w int, col *lipgloss.Style) string { return barG(p, w, col, "■", "·") }
+
+func barG(p float64, w int, col *lipgloss.Style, on, off string) string {
+	p = min(max(p, 0), 100)
+	n := int(p/100*float64(w) + 0.5)
 	st := level(p)
 	if col != nil {
 		st = *col
 	}
-	return st.Render(rep("■", on)) + dim.Render(rep("·", w-on))
+	return st.Render(rep(on, n)) + dim.Render(rep(off, w-n))
+}
+
+var vb = []rune(" ▁▂▃▄▅▆▇█")
+
+// vbar2 draws paired vertical bars, a[i] then b[i], h rows tall (newest pair at the right).
+func vbar2(a, b []float64, h int, top float64, ca, cb lipgloss.Style) []string {
+	if top <= 0 {
+		top = 1
+	}
+	cell := func(v float64, r int) string {
+		e := min(max(int(v/top*float64(h*8)+0.5)-(r-1)*8, 0), 8)
+		return string(vb[e])
+	}
+	var out []string
+	for r := h; r >= 1; r-- {
+		var l strings.Builder
+		for i := range a {
+			l.WriteString(ca.Render(cell(a[i], r)) + cb.Render(cell(b[i], r)) + " ")
+		}
+		out = append(out, l.String())
+	}
+	return out
 }
 
 var spk = []rune("▁▂▃▄▅▆▇█")

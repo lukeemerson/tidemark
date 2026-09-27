@@ -35,6 +35,10 @@ type Model struct {
 	cloudy    *exec.Cmd // running speed test, if any
 	cloudyErr error
 
+	lay      int               // chosen layout (index into layouts)
+	fallback bool              // set per frame when the chosen layout doesn't fit
+	save     func(name string) // persists the chosen layout; nil in tests
+
 	have              bool
 	s                 source.Sample
 	hcpu, hgpu, hpow  []float64
@@ -43,9 +47,14 @@ type Model struct {
 }
 
 // New builds the model from what is known instantly (sysctl, saved cloudy runs);
-// mactop's samples arrive on samples later.
-func New(samples <-chan source.Sample, runs []source.Run) Model {
-	m := Model{samples: samples, names: source.ProcNames{}}
+// mactop's samples arrive on samples later. layout names the starting layout ("" = tiles).
+func New(samples <-chan source.Sample, runs []source.Run, layout string, save func(string)) Model {
+	m := Model{samples: samples, names: source.ProcNames{}, save: save}
+	for i, l := range layouts {
+		if l.name == layout {
+			m.lay = i
+		}
+	}
 	m.setRuns(runs)
 	m.name, _ = unix.Sysctl("machdep.cpu.brand_string")
 	e, _ := unix.SysctlUint32("hw.perflevel1.physicalcpu")
@@ -125,6 +134,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "l", "L":
+			step := 1
+			if msg.String() == "L" {
+				step = len(layouts) - 1
+			}
+			m.lay = (m.lay + step) % len(layouts)
+			if m.save != nil {
+				name, save := layouts[m.lay].name, m.save
+				return m, func() tea.Msg { save(name); return nil }
+			}
 		case "r":
 			if m.cloudy != nil {
 				break
@@ -175,11 +194,20 @@ func (m Model) View() tea.View {
 // minProc is the smallest processes box worth drawing: borders, header and two rows.
 const minProc = 5
 
-// layout fits the screen to rows × w: panels drop out, narrowest first, rather than overflow.
+// layout draws the chosen layout, or tiles when the chosen one doesn't fit rows × w.
 func (m Model) layout(rows, w int) []string {
 	if w < 8 || rows < 1 {
 		return nil
 	}
+	l := layouts[m.lay]
+	if !l.fits(m, rows, w) {
+		m.fallback, l = true, layouts[0]
+	}
+	return l.draw(m, rows, w)
+}
+
+// tilesLayout fits the screen to rows × w: panels drop out, narrowest first, rather than overflow.
+func (m Model) tilesLayout(rows, w int) []string {
 	out := []string{m.head(w)}
 	out = append(out, m.stats(w)...)
 
@@ -247,6 +275,13 @@ func (m Model) head(w int) string {
 		if b := m.batt(); b != "" && lipgloss.Width(l)+lipgloss.Width(b)+20 <= w {
 			r = dim.Render("battery "+b+"   ") + r
 		}
+	}
+	ind := fmt.Sprintf("%s %d/%d", layouts[m.lay].name, m.lay+1, len(layouts))
+	if m.fallback {
+		ind = layouts[m.lay].name + " → tiles"
+	}
+	if lipgloss.Width(l)+lipgloss.Width(r)+lipgloss.Width(ind)+4 <= w {
+		r = dim.Render(ind+"   ") + r
 	}
 	if lipgloss.Width(l)+lipgloss.Width(r)+1 > w {
 		l = title.Render(m.name) // drop the core counts before the clock
