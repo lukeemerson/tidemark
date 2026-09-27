@@ -151,6 +151,7 @@ func graph(hist []float64, w, h int, top float64, col *lipgloss.Style) []string 
 	if top <= 0 {
 		top = 1
 	}
+	w = max(w, 0) // narrow terminals give negative widths
 	cells := make([]int, w*h)
 	n := len(hist)
 	for c := 0; c < w; c++ {
