@@ -22,6 +22,9 @@ func init() { // in init: the draw functions reach layouts through head()
 		{"instrument", func(m Model, rows, w int) bool {
 			return w >= 70 && rows >= 17+max(3, (m.ne+m.np+1)/2)
 		}, Model.instrumentLayout},
+		{"console", func(m Model, rows, w int) bool {
+			return w >= 90 && rows >= 21+max(3, (m.ne+m.np+1)/2)
+		}, Model.consoleLayout},
 	}
 }
 
@@ -141,6 +144,9 @@ func seg(t, rt string, span int) string {
 	if lipgloss.Width(tl)+lipgloss.Width(tr) > span-2 {
 		tr = ""
 	}
+	if lipgloss.Width(tl) > span-2 {
+		tl = " " + fit(t, span-4) + " "
+	}
 	return dim.Render("═") + title.Render(tl) + dim.Render(rep("═", span-2-lipgloss.Width(tl)-lipgloss.Width(tr))) + tr + dim.Render("═")
 }
 
@@ -162,6 +168,55 @@ func band(j [3]string, lt, lrt string, lw int, rt, rrt string, rw int, L, R []st
 }
 
 func (m Model) instrumentLayout(rows, w int) []string {
+	out := m.instrumentBands(w)
+	out = append(out, m.procBand(rows-len(out)-1, w)...)
+	return append(out, dim.Render("╚"+rep("═", w-2)+"╝"))
+}
+
+// consoleLayout is instrument with the tiles layout's 8 small panels across the bottom,
+// as columns of the same frame.
+func (m Model) consoleLayout(rows, w int) []string {
+	out := m.instrumentBands(w)
+	out = append(out, m.procBand(rows-len(out)-4, w)...)
+	return append(out, tileBand(m.statList(), w)...)
+}
+
+// procBand is the full-width process table under the last two-column band, rows lines tall.
+func (m Model) procBand(rows, w int) []string {
+	lw := (w - 3) * 3 / 5
+	out := []string{dim.Render("╠") + seg("processes", "", lw) + dim.Render("╩"+rep("═", w-3-lw)+"╣")}
+	v := dim.Render("║")
+	for _, l := range m.pProc(w-4, rows-2) {
+		out = append(out, v+" "+pad(l, w-4)+" "+v)
+	}
+	return out
+}
+
+// tileBand closes the frame with one column per stat: divider, value, sparkline, bottom edge.
+func tileBand(ss []stat, w int) []string {
+	n := len(ss)
+	cw := (w - 1 - n) / n
+	top, val, sp, bot := dim.Render("╠"), "", "", dim.Render("╚")
+	v := dim.Render("║")
+	for i, st := range ss {
+		c := cw
+		if i == n-1 {
+			c = w - 1 - n - (n-1)*cw
+		}
+		j, jb := "╦", "╩"
+		if i == n-1 {
+			j, jb = "╣", "╝"
+		}
+		top += seg(st.name, "", c) + dim.Render(j)
+		val += v + " " + pad(center(st.val, c-2), c-2) + " "
+		sp += v + " " + st.spark(c-2) + " "
+		bot += dim.Render(rep("═", c) + jb)
+	}
+	return []string{top, val + v, sp + v, bot}
+}
+
+// instrumentBands is the header and the three two-column bands shared by instrument and console.
+func (m Model) instrumentBands(w int) []string {
 	lw := (w - 3) * 3 / 5
 	rw := w - 3 - lw
 	soc := m.s.SoC
@@ -193,13 +248,5 @@ func (m Model) instrumentLayout(rows, w int) []string {
 	out = append(out, band([3]string{"╠", "╬", "╣"}, "gpu", m.hGPU(), lw, "power", m.hPow(), rw, gpuL, powR)...)
 
 	memL := append(m.pMem(lw-2), m.pIO(lw-2)...)
-	out = append(out, band([3]string{"╠", "╬", "╣"}, "memory · io", m.hMem(), lw, "cloudflare", m.cfLabel(), rw, memL, m.pCF(rw-2))...)
-
-	out = append(out, dim.Render("╠")+seg("processes", "", lw)+dim.Render("╩"+rep("═", rw)+"╣"))
-	ph := rows - len(out) - 1
-	v := dim.Render("║")
-	for _, l := range m.pProc(w-4, ph-1) {
-		out = append(out, v+" "+pad(l, w-4)+" "+v)
-	}
-	return append(out, dim.Render("╚"+rep("═", w-2)+"╝"))
+	return append(out, band([3]string{"╠", "╬", "╣"}, "memory · io", m.hMem(), lw, "cloudflare", m.cfLabel(), rw, memL, m.pCF(rw-2))...)
 }
