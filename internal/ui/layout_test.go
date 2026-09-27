@@ -69,3 +69,49 @@ func TestCoreCounts(t *testing.T) {
 		}
 	}
 }
+
+// TestNoEmptyBoxes: on tall screens every layout hands spare height to something that can use
+// it, so no box interior stays blank for more than 3 rows running.
+func TestNoEmptyBoxes(t *testing.T) {
+	m := replayed(t)
+	for li := range layouts {
+		for _, sz := range [][2]int{{140, 42}, {90, 30}, {100, 60}, {140, 70}, {200, 80}, {40, 80}} {
+			cols, rows := sz[0], sz[1]
+			m.lay = li
+			if !layouts[li].fits(m, rows, cols-2) {
+				continue
+			}
+			run := map[[2]int]int{}
+			for y, l := range m.layout(rows, cols-2) {
+				r := []rune(ansi.Strip(l))
+				var vs []int
+				for x, c := range r {
+					if strings.ContainsRune("│┃║╎╏", c) {
+						vs = append(vs, x)
+					}
+				}
+				seen := map[[2]int]bool{}
+				for i := 0; i+1 < len(vs); i++ {
+					a, b := vs[i], vs[i+1]
+					if b-a <= 2 { // the gap between two neighbouring boxes
+						continue
+					}
+					k := [2]int{a, b}
+					if strings.TrimSpace(string(r[a+1:b])) != "" {
+						continue
+					}
+					seen[k] = true
+					if run[k]++; run[k] == 4 {
+						t.Errorf("%s %dx%d: columns %d–%d blank for 4+ rows ending at row %d",
+							layouts[li].name, cols, rows, a, b, y)
+					}
+				}
+				for k := range run {
+					if !seen[k] {
+						delete(run, k)
+					}
+				}
+			}
+		}
+	}
+}

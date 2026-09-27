@@ -207,6 +207,10 @@ func (m Model) View() tea.View {
 // minProc is the smallest processes box worth drawing: borders, header and two rows.
 const minProc = 5
 
+// procMax is the tallest processes box with anything in it: mactop --headless sends at most
+// 20 processes. Height beyond it goes to graphs, never to empty rows.
+const procMax = 2 + 1 + 20
+
 // layout draws the chosen layout, or tiles when the chosen one doesn't fit rows × w.
 func (m Model) layout(rows, w int) []string {
 	if w < 8 || rows < 1 {
@@ -224,24 +228,43 @@ func (m Model) tilesLayout(rows, w int) []string {
 	out := []string{m.head(w)}
 	out = append(out, m.stats(w)...)
 
-	if w >= 61 { // two-column graph panels
-		cw := (w - 1) / 2
+	g, c, ng := 0, 0, 0       // graph row, cores row, narrow full-width cpu graph
+	ch := (m.ne+m.np+1)/2 + 2 // two cores per row
+	if w >= 61 {
 		if rows-len(out)-9 >= minProc {
-			out = append(out, hjoin(
-				panel("cpu", m.hCPU(), cw, 9, func(iw int) []string { return m.pCPU(iw, 6) }),
-				panel("gpu", m.hGPU(), w-cw-1, 9, func(iw int) []string { return m.pGPU(iw, 6) }),
-			)...)
+			g = 9
 		}
-		ch := (m.ne+m.np+1)/2 + 2 // two cores per row
-		if rows-len(out)-ch >= minProc {
-			out = append(out, hjoin(
-				panel("cores", "", cw, ch, func(iw int) []string { return m.pCores(iw, 2) }),
-				panel("power", m.hPow(), w-cw-1, ch, func(iw int) []string { return m.pPow(iw, ch-3) }),
-			)...)
+		if rows-len(out)-g-ch >= minProc {
+			c = ch
 		}
 	}
+	ph := rows - len(out) - g - c
+	if extra := ph - procMax; extra > 0 {
+		switch {
+		case g > 0:
+			g, ph = g+extra, procMax
+		case w < 61 && extra >= 4:
+			ng, ph = extra, procMax
+		}
+	}
+	if g > 0 {
+		cw := (w - 1) / 2
+		out = append(out, hjoin(
+			panel("cpu", m.hCPU(), cw, g, func(iw int) []string { return m.pCPU(iw, g-3) }),
+			panel("gpu", m.hGPU(), w-cw-1, g, func(iw int) []string { return m.pGPU(iw, g-3) }),
+		)...)
+	}
+	if c > 0 {
+		cw := (w - 1) / 2
+		out = append(out, hjoin(
+			panel("cores", "", cw, c, func(iw int) []string { return m.pCores(iw, 2) }),
+			panel("power", m.hPow(), w-cw-1, c, func(iw int) []string { return m.pPow(iw, c-3) }),
+		)...)
+	}
+	if ng > 0 {
+		out = append(out, panel("cpu", m.hCPU(), w, ng, func(iw int) []string { return m.pCPU(iw, ng-3) })...)
+	}
 
-	ph := rows - len(out)
 	if ph < 3 {
 		return out[:min(len(out), rows)]
 	}
@@ -259,7 +282,7 @@ func (m Model) tilesLayout(rows, w int) []string {
 	add("memory", m.hMem(), 5, m.pMem)
 	add("sensors", "", 5, m.pSens)
 	add("io", "", 5, m.pIO)
-	if cf := ph - len(right); cf >= 4 {
+	if cf := min(ph-len(right), 8); cf >= 4 {
 		add("cloudflare", m.cfLabel(), cf, m.pCF)
 	}
 	return append(out, hjoin(

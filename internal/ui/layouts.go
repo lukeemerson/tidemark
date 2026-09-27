@@ -45,10 +45,14 @@ func (m Model) sidebarLayout(rows, w int) []string {
 
 	soc := m.s.SoC
 	freq := dim.Render(fmt.Sprintf("E %s · P %s MHz", num(m.have, "%.0f", soc.EFreqMHz), num(m.have, "%.0f", soc.PFreqMHz)))
-	right := rounded.box("cpu", freq+"  "+m.hCPU(), gw, 8, graph(m.hcpu, gw-4, 6, 100, nil)...)
-	right = append(right, rounded.box("gpu", m.hGPU(), gw, 7, m.pGPU(gw-4, 4)...)...)
-	right = append(right, rounded.box("power", m.hPow(), gw, 7, m.pPow(gw-4, 4)...)...)
-	ph := rows - 1 - len(right)
+	ch, gh, pwh := 8, 7, 7
+	ph := rows - 1 - ch - gh - pwh
+	if extra := ph - procMax; extra > 0 { // spare height goes to the three graphs
+		ch, gh, pwh, ph = ch+extra-2*(extra/3), gh+extra/3, pwh+extra/3, procMax
+	}
+	right := rounded.box("cpu", freq+"  "+m.hCPU(), gw, ch, graph(m.hcpu, gw-4, ch-2, 100, nil)...)
+	right = append(right, rounded.box("gpu", m.hGPU(), gw, gh, m.pGPU(gw-4, gh-3)...)...)
+	right = append(right, rounded.box("power", m.hPow(), gw, pwh, m.pPow(gw-4, pwh-3)...)...)
 	right = append(right, rounded.box("processes", "", gw, ph, m.pProc(gw-4, ph-3)...)...)
 	return append([]string{m.head(w)}, hjoin(left, right)...)
 }
@@ -117,7 +121,7 @@ func (m Model) side(iw, h int) []string {
 		row("last", dim.Render(where)),
 	)
 	// leftover height: one ↓/↑ bar pair per saved run
-	ch := min(h-len(s)-3, 10)
+	ch := h - len(s) - 3
 	if ch < 3 {
 		return s
 	}
@@ -174,7 +178,9 @@ func band(j [3]string, lt, lrt string, lw int, rt, rrt string, rw int, L, R []st
 
 func (m Model) instrumentLayout(rows, w int) []string {
 	out := m.instrumentBands(w)
-	out = append(out, m.procBand(rows-len(out)-1, w)...)
+	pr := rows - len(out) - 1
+	out = append(out, m.historyBand(&pr, w)...)
+	out = append(out, m.procBand(pr, w)...)
 	return append(out, dim.Render("╚"+rep("═", w-2)+"╝"))
 }
 
@@ -182,8 +188,24 @@ func (m Model) instrumentLayout(rows, w int) []string {
 // as columns of the same frame.
 func (m Model) consoleLayout(rows, w int) []string {
 	out := m.instrumentBands(w)
-	out = append(out, m.procBand(rows-len(out)-4, w)...)
+	pr := rows - len(out) - 4
+	out = append(out, m.historyBand(&pr, w)...)
+	out = append(out, m.procBand(pr, w)...)
 	return append(out, tileBand(m.statList(), w)...)
+}
+
+// historyBand takes the rows the process table can't fill (it never has more than 20
+// processes) and draws cpu and power history there; nil when there aren't at least 3.
+func (m Model) historyBand(pr *int, w int) []string {
+	extra := *pr - (procMax - 1) // procBand is a divider, a header and up to 20 rows
+	if extra < 3 {
+		return nil
+	}
+	*pr -= extra
+	lw := (w - 3) * 3 / 5
+	rw := w - 3 - lw
+	return band([3]string{"╠", "╬", "╣"}, "cpu history", m.hCPU(), lw, "power history", m.hPow(), rw,
+		graph(m.hcpu, lw-2, extra-1, 100, nil), graph(m.hpow, rw-2, extra-1, hmax(m.hpow, 1), &power))
 }
 
 // procBand is the full-width process table under the last two-column band, rows lines tall.

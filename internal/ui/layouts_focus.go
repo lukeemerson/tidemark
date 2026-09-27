@@ -27,12 +27,16 @@ func (m Model) computeLayout(rows, w int) []string {
 
 	cpuT := dim.Render(fmt.Sprintf("E %s · P %s MHz", num(m.have, "%.0f", soc.EFreqMHz), num(m.have, "%.0f", soc.PFreqMHz))) + "  " + m.hCPU()
 	gpuT := dim.Render(fmt.Sprintf("%s MHz · ANE %s", num(m.have, "%.0f", soc.GPUFreqMHz), num(m.have, "%.0f%%", soc.ANEActive))) + "  " + m.hGPU()
+	ch := max((m.ne+m.np+1)/2+2, 7)
+	gh := 10
+	if extra := rows - 1 - gh - ch - procMax; extra > 0 { // process lists are full; graphs take the rest
+		gh += extra
+	}
 	out = append(out, hjoin(
-		square.box("cpu", cpuT, hw, 10, graph(m.hcpu, hw-4, 8, 100, nil)...),
-		square.box("gpu", gpuT, rw, 10, graph(m.hgpu, rw-4, 8, 100, &gpu)...),
+		square.box("cpu", cpuT, hw, gh, graph(m.hcpu, hw-4, gh-2, 100, nil)...),
+		square.box("gpu", gpuT, rw, gh, graph(m.hgpu, rw-4, gh-2, 100, &gpu)...),
 	)...)
 
-	ch := max((m.ne+m.np+1)/2+2, 7)
 	out = append(out, hjoin(
 		square.box("cores", "", hw, ch, m.pCores(hw-4, 2)...),
 		square.box("power", m.hPow(), rw, ch, m.pPow(rw-4, ch-3)...),
@@ -89,13 +93,17 @@ func (m Model) memoryLayout(rows, w int) []string {
 	)...)
 
 	hw := (w - 1) / 2
+	sh := 7
+	if extra := rows - len(out) - sh - procMax; extra > 0 { // process list is full; graphs take the rest
+		sh += extra
+	}
 	swapTop := max(hmax(m.hswap, 1), mem.SwapTotal)
 	loadTop := max(hmax(m.hload, 1), float64(m.ne+m.np))
 	out = append(out, hjoin(
-		dashed.box("swap", num(m.have, "%.2f GB", mem.SwapUsed/1073741824), hw, 7,
-			peakGraph(m.hswap, hw-4, 4, swapTop, gb(swapTop)+" GB", &power)...),
-		dashed.box("load", num(m.have, "%.2f", m.sys.Load[0]), w-hw-1, 7,
-			peakGraph(m.hload, w-hw-5, 4, loadTop, fmt.Sprintf("%.0f", loadTop), &gpu)...),
+		dashed.box("swap", num(m.have, "%.2f GB", mem.SwapUsed/1073741824), hw, sh,
+			peakGraph(m.hswap, hw-4, sh-3, swapTop, gb(swapTop)+" GB", &power)...),
+		dashed.box("load", num(m.have, "%.2f", m.sys.Load[0]), w-hw-1, sh,
+			peakGraph(m.hload, w-hw-5, sh-3, loadTop, fmt.Sprintf("%.0f", loadTop), &gpu)...),
 	)...)
 
 	ph := rows - len(out)
@@ -111,17 +119,22 @@ func (m Model) ioLayout(rows, w int) []string {
 	nd := m.s.NetDisk
 	out := []string{m.head(w)}
 
-	rg := func(t string, v float64, hist []float64, bw int, col *lipgloss.Style) []string {
+	// the cloudflare row stops at 10 (its stats are 6 lines); net and disk graphs take the rest
+	nh, dh := 8, 8
+	if extra := rows - 1 - nh - dh - 10; extra > 0 {
+		nh, dh = nh+extra-extra/2, dh+extra/2
+	}
+	rg := func(t string, v float64, hist []float64, bw, bh int, col *lipgloss.Style) []string {
 		top := hmax(hist, 1)
-		return hdashed.box(t, rate(m.have, v), bw, 8, peakGraph(hist, bw-4, 6, top, rate(true, top), col)...)
+		return hdashed.box(t, rate(m.have, v), bw, bh, peakGraph(hist, bw-4, bh-2, top, rate(true, top), col)...)
 	}
 	out = append(out, hjoin(
-		rg("net ↓", nd.InBytes, m.hnin, hw, &net),
-		rg("net ↑", nd.OutBytes, m.hnout, rw, &power),
+		rg("net ↓", nd.InBytes, m.hnin, hw, nh, &net),
+		rg("net ↑", nd.OutBytes, m.hnout, rw, nh, &power),
 	)...)
 	out = append(out, hjoin(
-		rg("disk read", nd.ReadKBytes*1024, m.hdr, hw, &gpu),
-		rg("disk write", nd.WriteKB*1024, m.hdw, rw, &mid),
+		rg("disk read", nd.ReadKBytes*1024, m.hdr, hw, dh, &gpu),
+		rg("disk write", nd.WriteKB*1024, m.hdw, rw, dh, &mid),
 	)...)
 
 	ph := rows - len(out)
