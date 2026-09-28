@@ -64,11 +64,12 @@ the cloudflare panels still show any runs it saved earlier.
 | `[` `]` · `{` `}` | while paused: step one unit · jump 30 (a sample, or 10 s on the 24h span) |
 | `z` | scrub span: the 400 samples in memory → the last hour on disk → the last 24 h (10 s buckets) |
 | `m` | mark the moment on screen as B: graphs ghost it, values show their difference · `m` again clears |
+| `o` | settings: layout, palette, interval and store, changed live and saved on close |
 | `q` | quit |
 
-`tidemark -i 500` samples every 500 ms (default 1000). History is kept in
+`tidemark -i 500` samples every 500 ms for that run (default 1000, or what `o` saved). History is kept in
 `~/Library/Application Support/tidemark/history` (the last hour of raw samples, and 24 h of 10 s
-summaries, about 75 MB at most); `-nostore` turns that off. `tidemark -rec session.raw` also records
+summaries, about 75 MB at most); `-nostore` turns that off for a run, and `o` for good. `tidemark -rec session.raw` also records
 mactop's samples to a file; `tidemark -play session.raw` replays one at its recorded pace (scrub
 it the same way; load and memory pressure aren't recorded, so they show `—`).
 

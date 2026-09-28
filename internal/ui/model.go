@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/sys/unix"
 
+	"github.com/lukeemerson/tidemark/internal/config"
 	"github.com/lukeemerson/tidemark/internal/source"
 )
 
@@ -20,6 +21,13 @@ const histLen = 400
 
 type sampleMsg source.Sample
 type doneMsg struct{}
+
+// fromMsg is a sampleMsg or doneMsg with the channel it came from: after the menu restarts
+// mactop, the old channel's last sample and its close are dropped.
+type fromMsg struct {
+	ch  <-chan source.Sample
+	msg tea.Msg
+}
 type cloudyMsg struct{ err error }
 
 type Model struct {
@@ -39,7 +47,8 @@ type Model struct {
 	fallback bool                         // set per frame when the chosen layout doesn't fit
 	palette  string                       // "ansi" or "tidemark" (palette.go)
 	dark     bool                         // terminal background, as the terminal reports it
-	save     func(layout, palette string) // persists the choices; nil in tests
+	save     func(config.Config)          // persists the choices; nil in tests
+	saved    config.Config                // what's saved: flags this run don't overwrite it
 
 	have              bool
 	s                 source.Sample
@@ -74,6 +83,13 @@ type Model struct {
 	noSys    bool             // replay: sysctl readings (load, pressure) aren't in the recording
 	ended    bool             // replay: the recording has finished
 	mark     *markB           // m: the moment compared against (compare.go); nil when none
+
+	// the settings menu (settings.go)
+	menu         bool    // o: the menu is open
+	sel          int     // its selected row
+	ctl          Control // restarts mactop, opens and closes the store; nil on -play and in tests
+	interval     int     // mactop's interval, ms
+	lockI, lockS bool    // -i / -nostore set that row this run
 }
 
 // Recorder is the history store as the model sees it: each live sample goes to its summary.
@@ -104,7 +120,7 @@ func (m Model) sysOK() bool { return m.have && !m.noSys }
 // New builds the model from what is known instantly (sysctl, saved cloudy runs);
 // mactop's samples arrive on samples later. layout and palette name the starting choices
 // ("" = tiles, ansi).
-func New(samples <-chan source.Sample, runs []source.Run, layout, palette string, save func(layout, palette string)) Model {
+func New(samples <-chan source.Sample, runs []source.Run, layout, palette string, save func(config.Config)) Model {
 	m := Model{samples: samples, names: source.ProcNames{}, save: save, palette: "ansi", dark: true, now: time.Now}
 	if palette == "tidemark" {
 		m.palette = palette
@@ -140,21 +156,23 @@ func (m Model) Stop() {
 	}
 }
 
-// saveCmd persists the current layout and palette off the update loop.
+// saveCmd persists the settings off the update loop.
 func (m Model) saveCmd() tea.Cmd {
 	if m.save == nil {
 		return nil
 	}
-	layout, palette, save := layouts[m.lay].name, m.palette, m.save
-	return func() tea.Msg { save(layout, palette); return nil }
+	c, save := m.saved, m.save
+	c.Layout, c.Palette = layouts[m.lay].name, m.palette
+	return func() tea.Msg { save(c); return nil }
 }
 
 func (m Model) wait() tea.Msg {
-	s, ok := <-m.samples
+	ch := m.samples
+	s, ok := <-ch
 	if !ok {
-		return doneMsg{}
+		return fromMsg{ch, doneMsg{}}
 	}
-	return sampleMsg(s)
+	return fromMsg{ch, sampleMsg(s)}
 }
 
 func (m Model) Init() tea.Cmd { return tea.Batch(m.wait, tea.RequestBackgroundColor) }
@@ -201,8 +219,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
+	case fromMsg:
+		if msg.ch != m.samples {
+			return m, nil
+		}
+		return m.Update(msg.msg)
 	case tea.KeyPressMsg:
+		if m.menu {
+			return m.menuKey(msg.String())
+		}
 		switch msg.String() {
+		case "o":
+			m.menu, m.sel = true, 0
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "l", "L":
@@ -361,14 +389,17 @@ func (m Model) layout(rows, w int) []string {
 		m.fallback, l = true, layouts[0]
 	}
 	out := l.draw(m, rows, w)
-	if !withDiag || len(out) == 0 {
-		return out
+	if withDiag && len(out) > 0 {
+		text := d.text
+		if lipgloss.Width(text) > w {
+			text = d.short
+		}
+		out = append([]string{out[0], pad(d.style().Render(text), w)}, out[1:]...)
 	}
-	text := d.text
-	if lipgloss.Width(text) > w {
-		text = d.short
+	if m.menu {
+		out = m.overlay(out, w)
 	}
-	return append([]string{out[0], pad(d.style().Render(text), w)}, out[1:]...)
+	return out
 }
 
 // tilesLayout fits the screen to rows × w: panels drop out, narrowest first, rather than overflow.

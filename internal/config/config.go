@@ -8,8 +8,10 @@ import (
 )
 
 type Config struct {
-	Layout  string `json:"layout"`
-	Palette string `json:"palette,omitempty"` // "ansi" (default) or "tidemark"
+	Layout   string `json:"layout"`
+	Palette  string `json:"palette,omitempty"`  // "ansi" (default) or "tidemark"
+	Interval int    `json:"interval,omitempty"` // mactop's sample interval in ms (0 = 1000)
+	Store    string `json:"store,omitempty"`    // "off" turns the history store off ("" = on)
 }
 
 // Path honours XDG_CONFIG_HOME and otherwise uses ~/.config, like the rest of the dotfiles.

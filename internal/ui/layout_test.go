@@ -35,11 +35,13 @@ func TestSweep(t *testing.T) {
 	paused.paused, paused.cursor = true, paused.seq-1-34
 	all := recording(t)
 	compare := key(key(paused, "m"), "space") // B 34 samples back, A live
+	menu := live
+	menu.menu = true
 	replay := feed(New(nil, source.CloudyRuns(source.CloudyDir(), 40), "", "", nil).Replay(len(all), all[0]), all[:34])
 	for _, st := range []struct {
 		name string
 		m    Model
-	}{{"lazy", lazy}, {"live", live}, {"paused", paused}, {"replay", replay}, {"compare", compare}} {
+	}{{"lazy", lazy}, {"live", live}, {"paused", paused}, {"replay", replay}, {"compare", compare}, {"menu", menu}} {
 		for li := range layouts {
 			for _, sz := range sizes {
 				cols, rows := sz[0], sz[1]
