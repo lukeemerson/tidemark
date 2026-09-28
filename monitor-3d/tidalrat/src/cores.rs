@@ -1,7 +1,6 @@
 //! `tidalrat --cores`: per-core load as a rotating 3D bar chart inside a Monitor TUI heavy frame.
 
 use crate::Opts;
-use crate::ratty::{self, Columns};
 use crate::scene::{self, Camera};
 use crate::source::{Meta, Sample, Source};
 use crate::theme::{Role, bold, fg, level};
@@ -30,8 +29,6 @@ struct App {
     pitch: f64,
     spin: bool,
     paused: bool,
-    ratty_found: bool,
-    columns: Columns,
     /// live mactop exited; we fell back to the recording
     mactop_stopped: bool,
 }
@@ -45,11 +42,6 @@ pub fn run(opts: &Opts) -> io::Result<()> {
         crate::source::static_meta()
     };
     let mut terminal = ratatui::try_init()?;
-    let ratty_found = ratty::detect();
-    // wipe any echo of the probe in terminals that don't swallow APC (terminal.clear() would
-    // query the cursor position, which not every terminal answers); a failure here must not
-    // skip the restore below
-    let _ = io::Write::write_all(&mut io::stdout(), b"\x1b[2J");
     let n = meta.as_ref().map_or(10, |m| m.e + m.p);
     let mut app = App {
         source,
@@ -60,15 +52,9 @@ pub fn run(opts: &Opts) -> io::Result<()> {
         pitch: 0.45,
         spin: true,
         paused: false,
-        ratty_found,
-        columns: Columns::new(n),
         mactop_stopped: false,
     };
-    let result = app
-        .columns
-        .set(opts.ratty || ratty_found)
-        .and_then(|_| app.run(&mut terminal, opts.frames));
-    let _ = app.columns.set(false);
+    let result = app.run(&mut terminal, opts.frames);
     ratatui::restore();
     result
 }
@@ -84,10 +70,6 @@ impl App {
                     && self.meta.as_ref() != Some(&m)
                 {
                     self.loads.resize(m.e + m.p, 0.0);
-                    let on = self.columns.on;
-                    self.columns.set(false)?;
-                    self.columns = Columns::new(m.e + m.p);
-                    self.columns.set(on)?;
                     self.meta = Some(m);
                 }
                 if !self.paused {
@@ -101,10 +83,6 @@ impl App {
                 let m = crate::source::recording().0;
                 if self.meta.as_ref() != Some(&m) {
                     self.loads.resize(m.e + m.p, 0.0);
-                    let on = self.columns.on;
-                    self.columns.set(false)?;
-                    self.columns = Columns::new(m.e + m.p);
-                    self.columns.set(on)?;
                     self.meta = Some(m);
                 }
             }
@@ -143,7 +121,6 @@ impl App {
                         KeyCode::Down => self.pitch = (self.pitch - 0.08).max(0.1),
                         KeyCode::Char(' ') => self.paused = !self.paused,
                         KeyCode::Char('a') => self.spin = !self.spin,
-                        KeyCode::Char('r') => self.columns.set(!self.columns.on)?,
                         _ => {}
                     }
                 }
@@ -154,7 +131,6 @@ impl App {
     fn draw(&mut self, f: &mut Frame) {
         let full = f.area();
         if full.width < MIN_W || full.height < MIN_H {
-            self.columns.hide_all();
             let area = full;
             let msg = format!("resize to at least {MIN_W}×{MIN_H}");
             Paragraph::new(Span::styled(msg, fg(Role::Dim)))
@@ -193,23 +169,9 @@ impl App {
         };
         let cam = Camera::new(self.yaw, self.pitch, &cores);
         let (cw, ch) = (chart_area.width as usize, chart_area.height as usize);
-        let chart = scene::render(cw, ch, &cam, &cores, &self.loads, !self.columns.on);
+        let chart = scene::render(cw, ch, &cam, &cores, &self.loads);
         let labels: Vec<String> = cores.iter().map(|c| c.label.clone()).collect();
         ui::draw_chart(f.buffer_mut(), chart_area, &chart, &labels);
-
-        let anchors: Vec<(u16, u16)> = chart
-            .labels
-            .iter()
-            .map(|&(r, c)| {
-                (
-                    (chart_area.y as i64 + r).max(0) as u16,
-                    (chart_area.x as i64 + c).max(0) as u16,
-                )
-            })
-            .collect();
-        let loads = self.loads.clone();
-        self.columns
-            .render(f, chart_area, &anchors, &loads, chart_area.height / 2);
 
         self.legend(f.buffer_mut(), Rect::new(x0, h - 1, w, 1));
     }
@@ -256,15 +218,8 @@ impl App {
     }
 
     fn legend(&self, buf: &mut Buffer, area: Rect) {
-        let state = if self.columns.on {
-            "ratty: on"
-        } else if self.ratty_found {
-            "ratty: off"
-        } else {
-            "ratty: off (not detected)"
-        };
-        let keys = "←/→ rotate · ↑/↓ tilt · space pause · a auto-spin · r ratty · q quit";
-        let room = (area.width as usize).saturating_sub(state.chars().count() + 3);
+        let keys = "←/→ rotate · ↑/↓ tilt · space pause · a auto-spin · q quit";
+        let room = (area.width as usize).saturating_sub(2);
         let keys: String = if keys.chars().count() > room {
             keys.chars()
                 .take(room.saturating_sub(1))
@@ -274,8 +229,5 @@ impl App {
             keys.into()
         };
         Line::from(Span::styled(format!(" {keys}"), fg(Role::Dim))).render(area, buf);
-        Line::from(Span::styled(format!("{state} "), fg(Role::Dim)))
-            .right_aligned()
-            .render(area, buf);
     }
 }

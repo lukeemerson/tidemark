@@ -997,16 +997,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ratatui-ratty"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eddeba6ef95da4c2ddaadc743908a30ffe3ebfb4025f28b5bad49309246c5efb"
-dependencies = [
- "base64",
- "ratatui-core",
-]
-
-[[package]]
 name = "ratatui-termina"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1422,7 +1412,6 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "ratatui",
- "ratatui-ratty",
  "serde",
  "serde_json",
 ]

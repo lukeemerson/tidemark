@@ -41,16 +41,6 @@ pub fn bold(role: Role) -> Style {
     fg(role).add_modifier(Modifier::BOLD)
 }
 
-/// Ratty draws true-colour meshes, so the level roles need hex there. These are the Alacritty
-/// palette values from tokens.json (the yellow slot renders lilac).
-pub fn hex(role: Role) -> [u8; 3] {
-    match role {
-        Role::High => [0xf0, 0x64, 0x59],
-        Role::Mid => [0xc8, 0x98, 0xca],
-        _ => [0xa3, 0xbe, 0x8c],
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

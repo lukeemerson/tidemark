@@ -6,6 +6,5 @@ edition = "2024"
 [dependencies]
 libc = "0.2.189"
 ratatui = "0.30"
-ratatui-ratty = "0.4"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"

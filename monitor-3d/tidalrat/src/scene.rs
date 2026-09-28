@@ -294,15 +294,7 @@ pub struct Chart {
     pub marks: Vec<(i64, i64, char, Role)>,
 }
 
-/// `columns = false` draws only the floor, labels and scale (Ratty draws the columns in 3D).
-pub fn render(
-    cw: usize,
-    ch: usize,
-    cam: &Camera,
-    cores: &[Core],
-    loads: &[f64],
-    columns: bool,
-) -> Chart {
+pub fn render(cw: usize, ch: usize, cam: &Camera, cores: &[Core], loads: &[f64]) -> Chart {
     let mut cv = Canvas::new(cw, ch);
     let (k, ox, oy) = fit(cam.pitch, cores, cv.dw, cv.dh);
     let proj = |x: f64, y: f64, z: f64| {
@@ -351,9 +343,7 @@ pub fn render(
         .collect();
 
     let mut colours = vec![];
-    if !columns {
-        post(&mut cv, -1);
-    } else {
+    {
         // columns and the post in one far-to-near order, so nearer columns hide the post and
         // the post hides columns behind it; `None` is the post
         let dist = |x: f64, z: f64| cam.view(x, 0.0, z).2;
@@ -647,14 +637,7 @@ mod tests {
     #[test]
     fn full_load_columns_are_drawn_in_their_level() {
         let cores = core_layout(4, 6);
-        let chart = render(
-            80,
-            24,
-            &Camera::new(0.6, 0.45, &cores),
-            &cores,
-            &[90.0; 10],
-            true,
-        );
+        let chart = render(80, 24, &Camera::new(0.6, 0.45, &cores), &cores, &[90.0; 10]);
         let roles: Vec<_> = chart.cells.iter().flatten().filter_map(|c| c.1).collect();
         assert!(roles.contains(&Role::High));
         assert!(!roles.contains(&Role::Low));

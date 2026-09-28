@@ -2,7 +2,6 @@
 
 mod alerts;
 mod cores;
-mod ratty;
 mod scene;
 mod source;
 mod terrain;
@@ -15,7 +14,7 @@ const USAGE: &str = "\
 tidalrat — 3D views of your Mac's load
 
 usage:
-  tidalrat --cores   [--replay | --play <file>] [--ratty]
+  tidalrat --cores   [--replay | --play <file>]
   tidalrat --terrain [--replay | --play <file>]
 
 commands:
@@ -25,7 +24,6 @@ commands:
 options:
   --replay       play the bundled 90-second recording instead of live mactop
   --play <file>  play a saved `mactop --headless` stream at its recorded spacing
-  --ratty        draw the columns as real 3D objects (auto when running inside Ratty)
   -h, --help     show this help
 ";
 
@@ -39,7 +37,6 @@ enum Command {
 pub struct Opts {
     pub replay: bool,
     pub play: Option<String>,
-    pub ratty: bool,
     pub frames: Option<u64>,
 }
 
@@ -88,7 +85,6 @@ fn parse(args: &[String]) -> Result<Option<(Command, Opts)>, String> {
             "--terrain" => set(Command::Terrain, &mut command)?,
             "--replay" => opts.replay = true,
             "--play" => opts.play = Some(it.next().ok_or("--play needs a file")?.clone()),
-            "--ratty" => opts.ratty = true,
             "-h" | "--help" => return Ok(None),
             // hidden: exit after N frames, for tests and captures
             "--frames" => {
@@ -111,9 +107,6 @@ fn parse(args: &[String]) -> Result<Option<(Command, Opts)>, String> {
     if opts.replay && opts.play.is_some() {
         return Err("use --replay or --play, not both".into());
     }
-    if opts.ratty && cmd != Command::Cores {
-        return Err("--ratty only works with --cores".into());
-    }
     Ok(Some((cmd, opts)))
 }
 
@@ -129,7 +122,7 @@ mod tests {
     fn parses_commands_and_flags() {
         let (c, o) = p("--cores --replay --frames 5").unwrap().unwrap();
         assert_eq!(c, Command::Cores);
-        assert!(o.replay && !o.ratty);
+        assert!(o.replay);
         assert_eq!(o.frames, Some(5));
         let (c, o) = p("--terrain --play rec.raw").unwrap().unwrap();
         assert_eq!(c, Command::Terrain);
@@ -139,7 +132,7 @@ mod tests {
         assert!(p("--replay").is_err());
         assert!(p("--cores --bogus").is_err());
         assert!(p("--cores --terrain").is_err());
-        assert!(p("--terrain --ratty").is_err());
+        assert!(p("--cores --ratty").is_err());
         assert!(p("--terrain --replay --play x").is_err());
         assert!(p("--terrain --play").is_err());
     }

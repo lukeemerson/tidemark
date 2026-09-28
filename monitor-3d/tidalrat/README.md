@@ -10,11 +10,9 @@ tidalrat --terrain                         # per-core load over time as a landsc
 tidalrat --terrain --play rec.raw          # a saved `mactop --headless` stream, at its recorded spacing
 ```
 
-`--cores` draws per-core load as a rotating 3D bar chart in braille, inside a heavy Monitor TUI frame. Inside
-[Ratty](https://blog.orhun.dev/introducing-ratty/) it's detected automatically, and the columns become real 3D
-cubes anchored to each core's label cell (`--ratty` forces this; `r` toggles it).
+`--cores` draws per-core load as a rotating 3D bar chart in braille, inside a heavy Monitor TUI frame.
 
-Keys: `←/→` rotate · `↑/↓` tilt · `space` pause · `a` auto-spin · `r` ratty · `q` quit. Minimum 60×20.
+Keys: `←/→` rotate · `↑/↓` tilt · `space` pause · `a` auto-spin · `q` quit. Minimum 60×20.
 
 `--terrain` draws the last 90 samples as one ridge per core, newest at the front. It keeps 400 samples to scrub:
 `space` pause/live · `[ ]` step one sample · `{ }` ±30 · `←/→` rotate · `↑/↓` tilt · `a` spin · `q` quit.
