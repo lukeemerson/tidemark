@@ -105,7 +105,7 @@ func TestRecordThenPlay(t *testing.T) {
 		t.Fatalf("recorded %d samples, %d of %d bytes match", n, len(got), len(want))
 	}
 	var waits []time.Duration
-	ch, total, recorded, err := Play(rec, func(d time.Duration) { waits = append(waits, d) })
+	ch, total, first, err := Play(rec, func(d time.Duration) { waits = append(waits, d) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,8 +116,8 @@ func TestRecordThenPlay(t *testing.T) {
 		}
 		played++
 	}
-	if total != 90 || played != 90 || len(waits) != 89 || recorded.Format("2006-01-02 15:04") != "2026-09-26 19:44" {
-		t.Errorf("total=%d played=%d waits=%d recorded=%v", total, played, len(waits), recorded)
+	if total != 90 || played != 90 || len(waits) != 89 || first.Timestamp.Format("2006-01-02 15:04") != "2026-09-26 19:44" {
+		t.Errorf("total=%d played=%d waits=%d recorded=%v", total, played, len(waits), first.Timestamp)
 	}
 	for _, d := range waits {
 		if d <= 0 || d > 10*time.Second {

@@ -38,11 +38,11 @@ func main() {
 	var m ui.Model
 	var col *source.Collector
 	if *play != "" {
-		samples, total, recorded, err := source.Play(*play, time.Sleep)
+		samples, total, first, err := source.Play(*play, time.Sleep)
 		if err != nil {
 			fail(err)
 		}
-		m = ui.New(samples, runs, cfg.Layout, cfg.Palette, save).Replay(total, recorded)
+		m = ui.New(samples, runs, cfg.Layout, cfg.Palette, save).Replay(total, first)
 	} else {
 		var err error
 		if col, err = source.Mactop(*interval, *rec); err != nil {

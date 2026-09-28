@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/lukeemerson/tidemark/internal/source"
 )
 
 // Scrub (SPEC.md §2): pause live data and step back through the last histLen samples, or watch
@@ -17,11 +19,18 @@ type replayInfo struct {
 	recorded time.Time
 }
 
-// Replay marks the model as playing a recording of total samples made at recorded. Load and
-// memory pressure come from sysctl, not mactop, so they aren't in the recording and draw as —.
-func (m Model) Replay(total int, recorded time.Time) Model {
-	m.replay = &replayInfo{total, recorded}
+// Replay marks the model as playing a recording of total samples, starting with first. The chip,
+// core counts and memory total come from the recording, not this Mac. Load and memory pressure
+// come from sysctl, not mactop, so they aren't in the recording and draw as —.
+func (m Model) Replay(total int, first source.Sample) Model {
+	m.replay = &replayInfo{total, first.Timestamp}
 	m.noSys = true
+	if si := first.SystemInfo; si.Name != "" {
+		m.name, m.ne, m.np = si.Name, si.ECoreCount, si.PCoreCount
+	}
+	if first.Memory.Total > 0 {
+		m.memTotal = first.Memory.Total
+	}
 	return m
 }
 

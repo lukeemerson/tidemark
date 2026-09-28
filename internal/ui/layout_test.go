@@ -34,7 +34,7 @@ func TestSweep(t *testing.T) {
 	paused := live
 	paused.paused, paused.cursor = true, paused.seq-1-34
 	all := recording(t)
-	replay := feed(New(nil, source.CloudyRuns(source.CloudyDir(), 40), "", "", nil).Replay(len(all), all[0].Timestamp), all[:34])
+	replay := feed(New(nil, source.CloudyRuns(source.CloudyDir(), 40), "", "", nil).Replay(len(all), all[0]), all[:34])
 	for _, st := range []struct {
 		name string
 		m    Model

@@ -134,7 +134,7 @@ func TestScrubKeys(t *testing.T) {
 
 func TestReplayHeader(t *testing.T) {
 	all := recording(t)
-	m := feed(New(nil, nil, "", "", nil).Replay(len(all), all[0].Timestamp), all[:34])
+	m := feed(New(nil, nil, "", "", nil).Replay(len(all), all[0]), all[:34])
 	m.lay = 2
 	head := ansi.Strip(m.layout(42, 138)[0])
 	if !strings.Contains(head, "▶ replay 34/90 · 1× · recorded 2026-09-26 19:44") || !strings.Contains(head, "instrument 3/10") {
@@ -160,5 +160,21 @@ func TestTrackCursorOnTick(t *testing.T) {
 	elsewhere := track(30, 90, 30, alertAt(56))
 	if !strings.Contains(elsewhere, high.Render("▲")) {
 		t.Errorf("tick away from the cursor should stay in the alert colour")
+	}
+}
+
+// A recording from another Mac shows that Mac: chip name, E/P counts and memory total come from
+// the recording, not this machine's sysctl (SPEC §1, 14347b6).
+func TestReplayUsesRecordedMachine(t *testing.T) {
+	all := recording(t)
+	other := all[0]
+	other.SystemInfo.Name, other.SystemInfo.ECoreCount, other.SystemInfo.PCoreCount = "Apple M4 Max", 4, 12
+	other.Memory.Total = 64 * 1073741824
+	m := New(nil, nil, "", "", nil).Replay(len(all), other)
+	if m.name != "Apple M4 Max" || m.ne != 4 || m.np != 12 || m.memTotal != 64*1073741824 {
+		t.Errorf("replay machine = %q %dE+%dP %.0f bytes", m.name, m.ne, m.np, m.memTotal)
+	}
+	if head := ansi.Strip(m.layout(42, 138)[0]); !strings.HasPrefix(head, "Apple M4 Max") {
+		t.Errorf("header before the first sample = %q", head)
 	}
 }
