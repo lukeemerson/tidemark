@@ -3,7 +3,7 @@
 3D views of the same mactop data tidemark shows. Rust + Ratatui, and the pilot for a Rust rewrite.
 
 ```sh
-cargo install --path monitor-3d/tidalrat   # puts tidalrat in ~/.cargo/bin
+cargo install --path 3d/prod/tidalrat   # puts tidalrat in ~/.cargo/bin
 tidalrat --cores                           # live mactop
 tidalrat --cores --replay                  # bundled 90 s recording, no mactop needed
 tidalrat --terrain                         # per-core load over time as a landscape

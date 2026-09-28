@@ -6,10 +6,10 @@ tag=${1:?usage: scripts/release.sh v0.1.0}
 cd "$(dirname "$0")/.."
 name=tidemark_darwin_arm64
 
-go test ./...
+(cd 2d/prod && go test ./...)
 rm -rf dist
 mkdir -p "dist/$name"
-GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o "dist/$name/tidemark" ./cmd/tidemark
+GOOS=darwin GOARCH=arm64 go build -C 2d/prod -trimpath -ldflags "-s -w" -o "$PWD/dist/$name/tidemark" ./cmd/tidemark
 cp README.md LICENSE "dist/$name/"
 tar -czf "dist/$name.tar.gz" -C dist "$name"
 (cd dist && shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256")

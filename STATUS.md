@@ -1,10 +1,10 @@
 # Status
 
-Where tidemark stands, as of 2026-09-28. Everything is on `main`; the `3d` branch is merged and retired.
+Where tidemark stands, as of 2026-09-28. Everything is on `main`; the `3d` branch is merged and retired. Layout: `2d/` and `3d/`, each with `prod/` (shipped code) and `dev/` (specs, mockups, plans, prototypes); `3d/shared/` holds data both 3D halves use.
 
 ## Built
 
-### 2D: tidemark (Go, `cmd/` + `internal/`)
+### 2D: tidemark (Go, `2d/prod/`)
 - 10 layouts on `l`/`L`, each scaling down to `tiles` at 20×20.
 - Colour roles: one ANSI slot per series. Upload uses slot 7 on dark, 0 on light. Built-in truecolor `tidemark` palette on `c`.
 - Readable without colour: textured upload bars, and a labelled scale on every graph.
@@ -15,39 +15,37 @@ Where tidemark stands, as of 2026-09-28. Everything is on `main`; the `3d` branc
 - **Settings** (SETTINGS-SPEC.md): `o` opens an overlay for layout, palette, interval and store. Changes apply live and save on close.
 - Release packaging: `scripts/release.sh`, MIT.
 
-### 3D: tidalrat (Rust, `monitor-3d/tidalrat/`)
+### 3D: tidalrat (Rust, `3d/prod/tidalrat/`)
 - `--cores`: a live 3D core chart in braille, a fixed size spinning in place.
 - `--terrain`: per-core history as a braille landscape. Same scrub keys as 2D; `--play <file>` reads the same recordings.
 - Terrain alert markers (TERRAIN-ALERTS-SPEC.md): tidalrat runs the three diagnosis rules, `▲` beside the floor, ticks and a count in the header.
 - 18 tests pass.
 
-### 3D: prototypes (`monitor-3d/prototypes/`)
+### 3D: prototypes (`3d/dev/prototypes/`)
 - A (VT room, three.js), B (silicon floor), C (history terrain), E (terminal 3D, Python). D was dropped.
-- Evaluation, components and results are in `monitor-3d/*.md`.
+- Evaluation, components and results are in `3d/dev/*.md`.
 
 ### Design
 - `design-system/`: tokens and 11 components with HTML previews.
-- `monitor-3d/prod/`: the history/diagnosis spec, mockups and gallery.
+- `2d/dev/`: the 2D specs, mockups and gallery. `3d/dev/TERRAIN-ALERTS-SPEC.md` for 3D.
 
 ## Open
 - `-play` process names come from this Mac's PID lookup. The fix is decided for v1 and is with build-2d (SPEC §1).
 - A corrupt line in the middle of a `-play` file ends playback there (minor, known).
 - The real non-`Nominal` thermal state names are unverified: record mactop under sustained load.
-- `monitor-3d/PLAN.md` still says 3D lives on branch `3d`.
 
 ## Next
 Proposed, not yet decided with Luke:
 
 | area | item | source |
 | --- | --- | --- |
-| repo | **next:** reorganize into 2d/3d × prod/dev (paused mid-planning; prototypes and tidalrat use relative paths into `monitor-3d/shared/` and `design-system/`) | Luke |
-| repo | **after that:** a deeper config map | Luke |
+| repo | **next:** a deeper config map | Luke |
 | 2D | "what changed?" feed; processes grouped by project | README |
 | 2D | process actions (kill/renice with a y/n confirm) | TODO-future |
 | 3D | `--die` chip floorplan, then the throttle hotspot on it | PLAN row 3 |
 | 3D | `--web`, `--wall` | PLAN rows 4, 7 |
-| both | in-process sampling (vendored mactop IOReport), dropping the ~1–1.8 s startup | PLAN.md |
-| both | Rust rewrite: tidalrat is the pilot | monitor-3d/PLAN.md |
+| both | in-process sampling (vendored mactop IOReport), dropping the ~1–1.8 s startup | 2d/dev/PLAN.md |
+| both | Rust rewrite: tidalrat is the pilot | 3d/dev/PLAN.md |
 
 ## Team
 - design: specs, mockups, sign-off, and general manager.

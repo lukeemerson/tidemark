@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """monitor3d — cores as a rotating 3D bar chart in braille, inside a Monitor TUI heavy frame.
-Replays ../../shared/samples.json at 1 Hz; --live reads mactop. In Ratty, hands the columns to RGP."""
+Replays ../../../shared/samples.json at 1 Hz; --live reads mactop. In Ratty, hands the columns to RGP."""
 import json, math, os, select, shutil, signal, subprocess, sys, termios, threading, time, tty
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SAMPLES = os.path.join(HERE, '..', '..', 'shared', 'samples.json')
+SAMPLES = os.path.join(HERE, '..', '..', '..', 'shared', 'samples.json')
 CUBE = os.path.join(HERE, 'cube.obj')
 
 E = '\x1b'

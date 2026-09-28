@@ -8,12 +8,12 @@ All four prototypes run. Nothing is committed.
 cd <worktree> && python3 -m http.server 8743
 ```
 
-Then open http://localhost:8743/monitor-3d/. I only tested the browser prototypes over HTTP. They use relative paths and CDN scripts, so opening them from `file://` should also work, but I didn't confirm it.
+Then open http://localhost:8743/3d/dev/. I only tested the browser prototypes over HTTP. They use relative paths and CDN scripts, so opening them from `file://` should also work, but I didn't confirm it.
 
 To run the terminal prototype:
 
 ```
-python3 monitor-3d/prototypes/e-terminal-3d/monitor3d.py
+python3 3d/dev/prototypes/e-terminal-3d/monitor3d.py
 ```
 
 Add `--live` for real mactop data.

@@ -1,5 +1,5 @@
 //! Samples from `mactop --headless` (live), the 90 recorded samples in
-//! monitor-3d/shared/samples.json (replay, 1 Hz, looping), or a saved raw mactop stream
+//! 3d/shared/samples.json (replay, 1 Hz, looping), or a saved raw mactop stream
 //! (`--play <file>`, at the recorded spacing).
 
 use serde::Deserialize;
@@ -54,7 +54,7 @@ pub enum Source {
     },
 }
 
-const RECORDING: &str = include_str!("../../shared/samples.json");
+const RECORDING: &str = include_str!("../../../shared/samples.json");
 
 #[derive(Deserialize)]
 struct Recording {

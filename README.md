@@ -48,7 +48,7 @@ Downloaded the release in a browser instead? macOS quarantines it; clear that on
 **From source** (Go 1.27+):
 
 ```sh
-git clone https://github.com/lukeemerson/tidemark && cd tidemark
+git clone https://github.com/lukeemerson/tidemark && cd tidemark/2d/prod
 go build -o ~/.local/bin/tidemark ./cmd/tidemark
 ```
 
@@ -98,7 +98,7 @@ over to `tiles`, which fits down to 20×20, and the header says so (`sidebar →
 
 ## Components
 
-Everything is drawn from a few pieces in [`internal/ui/draw.go`](internal/ui/draw.go). These
+Everything is drawn from a few pieces in [`2d/prod/internal/ui/draw.go`](2d/prod/internal/ui/draw.go). These
 examples are printed by that code from the test sample. Their design tokens and HTML previews
 are in [`design-system/`](design-system/).
 
@@ -196,10 +196,10 @@ If mactop exits or sends something unreadable, `tidemark` quits with the reason 
 ## Development
 
 ```sh
-go test ./...
+cd 2d/prod && go test ./...
 ```
 
-- **Decoding:** a 90-second mactop recording (`internal/source/testdata`) drives the tests.
+- **Decoding:** a 90-second mactop recording (`2d/prod/internal/source/testdata`) drives the tests.
 - **Sweep:** every layout is drawn at sizes from 1×1 to 200×80, before and after data. The test
   fails if a line overflows, the frame doesn't fit, a box is left open at the bottom, or a box
   interior stays blank for 4+ rows.
@@ -207,7 +207,7 @@ go test ./...
 `scripts/release.sh v0.1.0` runs the tests, builds `tidemark_darwin_arm64.tar.gz` (plus its
 sha256) and attaches both to a draft GitHub release, ready to publish.
 
-[`PLAN.md`](PLAN.md) has the build notes and what comes next: an on-demand settings menu, then
+[`2d/dev/PLAN.md`](2d/dev/PLAN.md) has the build notes and what comes next: an on-demand settings menu, then
 rewind, a "what changed?" feed, and processes grouped by project.
 
 ## License
