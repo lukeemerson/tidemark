@@ -299,7 +299,7 @@ impl App {
     }
 }
 
-/// Chart cells, then core labels and scale ticks in dim wherever no column is drawn.
+/// Chart cells, scale ticks where they fit whole, then core labels on top of everything.
 fn draw_chart(buf: &mut Buffer, area: Rect, chart: &scene::Chart, cores: &[scene::Core]) {
     for (y, row) in chart.cells.iter().enumerate() {
         for (x, &(ch, role)) in row.iter().enumerate() {
@@ -342,7 +342,18 @@ fn draw_chart(buf: &mut Buffer, area: Rect, chart: &scene::Chart, cores: &[scene
             text(buf, r, c, t);
         }
     }
+    // labels always show, over the columns, so every core stays named
     for (&(r, c), core) in chart.labels.iter().zip(cores) {
-        text(buf, r, c, &core.label);
+        for (j, ch) in core.label.chars().enumerate() {
+            let x = c + j as i64;
+            if r >= 0
+                && x >= 0
+                && r < area.height as i64
+                && x < area.width as i64
+                && let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + r as u16))
+            {
+                cell.set_char(ch).set_style(fg(Role::Dim));
+            }
+        }
     }
 }

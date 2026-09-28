@@ -135,7 +135,7 @@ pub fn fit(pitch: f64, cores: &[Core], dw: usize, dh: usize) -> (f64, f64, f64) 
 type Pattern = fn(i64, i64) -> bool;
 const FULL: Pattern = |_, _| true;
 const STRIPE: Pattern = |x, _| x % 2 == 0;
-const CHECK: Pattern = |x, y| (x + y) % 2 == 0;
+const CHECK: Pattern = |x, y| (x + y) % 4 == 0; // 2 of 8 dots: shaded reads darker than STRIPE's 4
 
 struct Canvas {
     cw: usize,
