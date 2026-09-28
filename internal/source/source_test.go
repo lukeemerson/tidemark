@@ -91,7 +91,11 @@ func TestRecordThenPlay(t *testing.T) {
 	os.WriteFile(fake, []byte("#!/bin/sh\ncat '"+raw+"'\n"), 0o755)
 	t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
 	rec := filepath.Join(dir, "rec.raw")
-	c, err := Mactop(1000, rec)
+	f, err := os.Create(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := Mactop(1000, f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,6 +103,7 @@ func TestRecordThenPlay(t *testing.T) {
 	for range c.Samples {
 		n++
 	}
+	f.Close()
 	want, _ := os.ReadFile(raw)
 	got, _ := os.ReadFile(rec)
 	if n != 90 || string(got) != string(want) {

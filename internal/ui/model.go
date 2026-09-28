@@ -62,9 +62,21 @@ type Model struct {
 	cursor int   // the sample on screen while paused, as a seq index
 	alerts []int // seq indices where a diagnosis rule started firing
 
+	store  Recorder    // the history store, when this tidemark owns it; nil otherwise
 	replay *replayInfo // set by Replay for -play; nil when live
 	noSys  bool        // replay: sysctl readings (load, pressure) aren't in the recording
 	ended  bool        // replay: the recording has finished
+}
+
+// Recorder is the history store as the model sees it: each live sample goes to its summary.
+type Recorder interface {
+	Add(s source.Sample, sys source.Sys, sysOK, fired bool, name func(int, string) string)
+}
+
+// Store hands each live sample to r (STORE-SPEC.md). A replay never writes.
+func (m Model) Store(r Recorder) Model {
+	m.store = r
+	return m
 }
 
 // procName is a process's display name. Live, a bare version number is looked up by PID; on
@@ -252,6 +264,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if fired {
 			m.alerts = append(m.alerts, m.seq)
+		}
+		if m.store != nil && m.replay == nil {
+			m.store.Add(m.s, m.sys, !m.noSys, fired, m.procName)
 		}
 		m.seq++
 		for len(m.alerts) > 0 && m.alerts[0] < m.seq-len(m.past) {

@@ -205,3 +205,27 @@ func TestReplayKeepsLocalCoresWhenUnrecorded(t *testing.T) {
 		t.Errorf("cores = %dE+%dP, want this Mac's %dE+%dP", m.ne, m.np, local.ne, local.np)
 	}
 }
+
+type recorderStub struct{ adds, fired int }
+
+func (r *recorderStub) Add(_ source.Sample, _ source.Sys, _, fired bool, _ func(int, string) string) {
+	r.adds++
+	if fired {
+		r.fired++
+	}
+}
+
+// Live samples go to the history store with their alert flags; a replay never writes.
+func TestStoreGetsLiveSamplesOnly(t *testing.T) {
+	all := recording(t)
+	live := &recorderStub{}
+	m := feed(New(nil, nil, "", "", nil).Store(live), all)
+	if live.adds != len(all) || live.fired != len(m.alerts) {
+		t.Errorf("live: %d adds (want %d), %d fired (want %d)", live.adds, len(all), live.fired, len(m.alerts))
+	}
+	rep := &recorderStub{}
+	feed(New(nil, nil, "", "", nil).Replay(len(all), all[0]).Store(rep), all)
+	if rep.adds != 0 {
+		t.Errorf("replay wrote %d samples to the store", rep.adds)
+	}
+}

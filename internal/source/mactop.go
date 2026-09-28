@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -106,9 +105,9 @@ type Collector struct {
 	done    chan struct{}
 }
 
-// Mactop starts mactop --headless at the given interval. With rec set, mactop's raw output is
-// also copied to that file: the same format Play reads back.
-func Mactop(intervalMs int, rec string) (*Collector, error) {
+// Mactop starts mactop --headless at the given interval. With tee set, mactop's raw output is
+// also copied there (a -rec file, the history store): the same format Play reads back.
+func Mactop(intervalMs int, tee io.Writer) (*Collector, error) {
 	cmd := exec.Command("mactop", "--headless", "--count", "0", "-i", strconv.Itoa(intervalMs))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -117,12 +116,8 @@ func Mactop(intervalMs int, rec string) (*Collector, error) {
 		return nil, err
 	}
 	var in io.Reader = stdout
-	var recf *os.File
-	if rec != "" {
-		if recf, err = os.Create(rec); err != nil {
-			return nil, err
-		}
-		in = io.TeeReader(stdout, recf)
+	if tee != nil {
+		in = io.TeeReader(stdout, tee)
 	}
 	if err := cmd.Start(); err != nil {
 		return nil, err
@@ -132,9 +127,6 @@ func Mactop(intervalMs int, rec string) (*Collector, error) {
 	go func() {
 		defer close(ch) // after err is set, so a closed Samples always has its Err ready
 		derr := Decode(in, ch)
-		if recf != nil {
-			recf.Close()
-		}
 		if derr != nil {
 			cmd.Process.Kill() // a stuck mactop would block Wait on a full pipe
 		}
