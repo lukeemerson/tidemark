@@ -17,7 +17,7 @@ func replayed(t *testing.T) Model {
 	}
 	ch := make(chan source.Sample)
 	go func() { source.Decode(f, ch); close(ch) }()
-	m := New(nil, source.CloudyRuns(source.CloudyDir(), 40), "", nil)
+	m := New(nil, source.CloudyRuns(source.CloudyDir(), 40), "", "", nil)
 	for s := range ch {
 		mm, _ := m.Update(sampleMsg(s))
 		m = mm.(Model)
@@ -29,7 +29,7 @@ func replayed(t *testing.T) Model {
 // fits the rows, and boxes are never cut open at the bottom.
 func TestSweep(t *testing.T) {
 	live := replayed(t)
-	lazy := New(nil, source.CloudyRuns(source.CloudyDir(), 40), "", nil)
+	lazy := New(nil, source.CloudyRuns(source.CloudyDir(), 40), "", "", nil)
 	sizes := [][2]int{{1, 1}, {5, 3}, {20, 20}, {30, 15}, {40, 24}, {60, 20}, {66, 27}, {80, 24}, {100, 30}, {140, 42}}
 	for _, st := range []struct {
 		name string

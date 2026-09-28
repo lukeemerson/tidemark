@@ -58,6 +58,7 @@ the cloudflare panels still show any runs it saved earlier.
 | key | does |
 | --- | --- |
 | `l` / `L` | next / previous layout (remembered in `~/.config/tidemark/config.json`) |
+| `c` | switch palette: your terminal's 16 colours (default) or the built-in `tidemark` palette |
 | `r` | run a Cloudflare speed test (~30 s) and reload the cloudflare panels |
 | `q` | quit |
 
@@ -114,6 +115,12 @@ are in [`design-system/`](design-system/).
 power magenta, memory bright cyan, temperature bright magenta, in/download bright blue,
 out/upload the foreground grey). Green, amber and red only mean state: meters, memory pressure,
 errors. Numbers stay in the text colour.
+
+**Built-in palette** (`c`): a fixed truecolor set with separate steps for dark and light
+backgrounds (tidemark asks the terminal which it has). It was checked with a colour validator for
+lightness, chroma, colour-blind separation and contrast against dark and light terminal backgrounds;
+the remaining edge cases (dark ↓/↑ for red-weak vision, three light-mode hues under 3:1 contrast)
+all carry visible labels.
 
 ```
 ┏━ cpu ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  28% ━┓

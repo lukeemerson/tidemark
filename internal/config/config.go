@@ -8,7 +8,8 @@ import (
 )
 
 type Config struct {
-	Layout string `json:"layout"`
+	Layout  string `json:"layout"`
+	Palette string `json:"palette,omitempty"` // "ansi" (default) or "tidemark"
 }
 
 // Path honours XDG_CONFIG_HOME and otherwise uses ~/.config, like the rest of the dotfiles.

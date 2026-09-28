@@ -35,9 +35,11 @@ type Model struct {
 	cloudy    *exec.Cmd // running speed test, if any
 	cloudyErr error
 
-	lay      int               // chosen layout (index into layouts)
-	fallback bool              // set per frame when the chosen layout doesn't fit
-	save     func(name string) // persists the chosen layout; nil in tests
+	lay      int                          // chosen layout (index into layouts)
+	fallback bool                         // set per frame when the chosen layout doesn't fit
+	palette  string                       // "ansi" or "tidemark" (palette.go)
+	dark     bool                         // terminal background, as the terminal reports it
+	save     func(layout, palette string) // persists the choices; nil in tests
 
 	have              bool
 	s                 source.Sample
@@ -52,9 +54,14 @@ type Model struct {
 }
 
 // New builds the model from what is known instantly (sysctl, saved cloudy runs);
-// mactop's samples arrive on samples later. layout names the starting layout ("" = tiles).
-func New(samples <-chan source.Sample, runs []source.Run, layout string, save func(string)) Model {
-	m := Model{samples: samples, names: source.ProcNames{}, save: save}
+// mactop's samples arrive on samples later. layout and palette name the starting choices
+// ("" = tiles, ansi).
+func New(samples <-chan source.Sample, runs []source.Run, layout, palette string, save func(layout, palette string)) Model {
+	m := Model{samples: samples, names: source.ProcNames{}, save: save, palette: "ansi", dark: true}
+	if palette == "tidemark" {
+		m.palette = palette
+	}
+	setPalette(m.palette, m.dark) // dark until the terminal answers the background query
 	for i, l := range layouts {
 		if l.name == layout {
 			m.lay = i
@@ -85,6 +92,15 @@ func (m Model) Stop() {
 	}
 }
 
+// saveCmd persists the current layout and palette off the update loop.
+func (m Model) saveCmd() tea.Cmd {
+	if m.save == nil {
+		return nil
+	}
+	layout, palette, save := layouts[m.lay].name, m.palette, m.save
+	return func() tea.Msg { save(layout, palette); return nil }
+}
+
 func (m Model) wait() tea.Msg {
 	s, ok := <-m.samples
 	if !ok {
@@ -93,7 +109,7 @@ func (m Model) wait() tea.Msg {
 	return sampleMsg(s)
 }
 
-func (m Model) Init() tea.Cmd { return m.wait }
+func (m Model) Init() tea.Cmd { return tea.Batch(m.wait, tea.RequestBackgroundColor) }
 
 func push(h []float64, v float64) []float64 {
 	h = append(h, v)
@@ -145,10 +161,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				step = len(layouts) - 1
 			}
 			m.lay = (m.lay + step) % len(layouts)
-			if m.save != nil {
-				name, save := layouts[m.lay].name, m.save
-				return m, func() tea.Msg { save(name); return nil }
-			}
+			return m, m.saveCmd()
+		case "c":
+			m.palette = map[string]string{"ansi": "tidemark", "tidemark": "ansi"}[m.palette]
+			setPalette(m.palette, m.dark)
+			return m, m.saveCmd()
 		case "r":
 			if m.cloudy != nil {
 				break
@@ -161,6 +178,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cloudy, m.cloudyErr = cmd, nil
 			return m, func() tea.Msg { return cloudyMsg{cmd.Wait()} }
 		}
+	case tea.BackgroundColorMsg:
+		m.dark = msg.IsDark()
+		setPalette(m.palette, m.dark)
 	case cloudyMsg:
 		m.cloudy, m.cloudyErr = nil, msg.err
 		m.setRuns(source.CloudyRuns(source.CloudyDir(), 40))
@@ -316,6 +336,9 @@ func (m Model) head(w int) string {
 	ind := fmt.Sprintf("%s %d/%d", layouts[m.lay].name, m.lay+1, len(layouts))
 	if m.fallback {
 		ind = layouts[m.lay].name + " → tiles"
+	}
+	if m.palette != "ansi" {
+		ind += " · " + m.palette
 	}
 	if lipgloss.Width(l)+lipgloss.Width(r)+lipgloss.Width(ind)+4 <= w {
 		r = dim.Render(ind+"   ") + r

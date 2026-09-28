@@ -23,11 +23,11 @@ func main() {
 		os.Exit(1)
 	}
 	cfg := config.Load()
-	save := func(layout string) {
-		cfg.Layout = layout
+	save := func(layout, palette string) {
+		cfg.Layout, cfg.Palette = layout, palette
 		config.Save(cfg)
 	}
-	m := ui.New(col.Samples, source.CloudyRuns(source.CloudyDir(), 40), cfg.Layout, save)
+	m := ui.New(col.Samples, source.CloudyRuns(source.CloudyDir(), 40), cfg.Layout, cfg.Palette, save)
 	final, err := tea.NewProgram(m).Run()
 	cerr := col.Err() // read before Stop: only set if mactop ended on its own
 	col.Stop()

@@ -8,24 +8,16 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// ANSI palette indices, so the terminal's own theme (Alacritty) supplies the colours.
+var title = lipgloss.NewStyle().Bold(true)
+
+// Colour roles, set by setPalette (palette.go). low/mid/high are for state only (meters,
+// pressure, errors); each series has its own colour and numbers stay in the text colour.
 var (
-	dim   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(8))
-	title = lipgloss.NewStyle().Bold(true)
-	low   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(2))
-	mid   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(3))
-	high  = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(1))
-	// low/mid/high are for state only (meters, pressure, errors); each series has its own slot.
-	// Neighbouring tiles differ even in themes where bright slots equal normal ones.
-	cCPU   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(6))  // cpu, load
-	cGPU   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(4))  // gpu
-	cPower = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(5))  // power
-	cMem   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(14)) // memory, swap
-	cTemp  = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(13)) // temperatures
-	cDown  = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(12)) // download, disk read
-	cUp    = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(7))  // upload, disk write
-	cPing  = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(8))  // latency
+	dim, low, mid, high                                lipgloss.Style
+	cCPU, cGPU, cPower, cMem, cTemp, cDown, cUp, cPing lipgloss.Style
 )
+
+func init() { setPalette("ansi", true) }
 
 func level(v float64) lipgloss.Style {
 	switch {

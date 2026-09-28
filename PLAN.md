@@ -66,7 +66,7 @@ Border titles: lipgloss has no titled border, so `box()` in draw.go builds the t
    - **Braille graphs:** drop the green→amber→red row bands, which put state colours on height and
      fail the red/green colour-blind check. Use one colour per series, and show state with a label
      or marker.
-8. **A palette that passes:** colours come from the terminal's 16 ANSI slots, and the validator
+8. ✅ **A palette that passes:** colours come from the terminal's 16 ANSI slots, and the validator
    (`dataviz/validate_palette.js`) failed all four themes tried:
    - **Too close for anyone:** adjacent series ΔE 5–8 against a floor of 15 (e.g. cyan↔blue).
    - **Red↔green for colour-blind readers:** ΔE 4.6 in the Earthsong-based Ghostty theme.
