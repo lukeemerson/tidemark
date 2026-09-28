@@ -53,11 +53,26 @@ func TestAxisGraphStableWidth(t *testing.T) {
 	}
 }
 
-// Upload draws in the terminal's text colour under ansi, so no light theme can wash it out.
-func TestAnsiUploadUsesForeground(t *testing.T) {
+// Upload is slot 7 on dark backgrounds and slot 0 on light ones under ansi (slot 7 can be a pale
+// grey in light themes).
+func TestAnsiUploadFollowsBackground(t *testing.T) {
 	defer setPalette("ansi", true)
-	setPalette("ansi", false)
-	if got := cUp.GetForeground(); got != (lipgloss.NoColor{}) {
-		t.Errorf("ansi upload colour = %v, want the terminal default", got)
+	for _, c := range []struct {
+		dark bool
+		want lipgloss.ANSIColor
+	}{{true, 7}, {false, 0}} {
+		setPalette("ansi", c.dark)
+		if got := cUp.GetForeground(); got != c.want {
+			t.Errorf("dark=%v: upload = %v, want slot %d", c.dark, got, c.want)
+		}
+	}
+}
+
+// Rate labels stay within axisGraph's 6-column gutter, including the 1000–1023 K band.
+func TestShortRateFitsGutter(t *testing.T) {
+	for _, b := range []float64{0, 9.9, 999, 1000 * 1024, 1023 * 1024, 999.9 * 1024 * 1024, 5e12} {
+		if s := shortRate(b); len(s) > 6 {
+			t.Errorf("shortRate(%.0f) = %q, %d chars", b, s, len(s))
+		}
 	}
 }

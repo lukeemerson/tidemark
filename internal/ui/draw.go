@@ -269,11 +269,12 @@ func axisGraph(hist []float64, w, h int, top float64, label string, col lipgloss
 	return rows
 }
 
-// shortRate is rate for axis labels: "2.5K/s", "16M/s".
+// shortRate is rate for axis labels: "2.5K/s", "16M/s". Units step up at 999.5 (not 1024), so a
+// label never rounds to 4 digits and always fits axisGraph's 6-column gutter.
 func shortRate(b float64) string {
-	u := []string{"B", "K", "M", "G"}
+	u := []string{"B", "K", "M", "G", "T"}
 	i := 0
-	for b >= 1024 && i < 3 {
+	for b >= 999.5 && i < 4 {
 		b /= 1024
 		i++
 	}
