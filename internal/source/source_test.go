@@ -126,3 +126,22 @@ func TestRecordThenPlay(t *testing.T) {
 		}
 	}
 }
+
+// A recording cut off mid-sample (quit or kill during a write) still plays everything before
+// the cut (review's finding on bb97cde).
+func TestPlayTruncatedRecording(t *testing.T) {
+	raw, _ := os.ReadFile("testdata/mactop.raw")
+	cut := filepath.Join(t.TempDir(), "cut.raw")
+	os.WriteFile(cut, raw[:len(raw)-700], 0o644)
+	ch, total, _, err := Play(cut, func(time.Duration) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for range ch {
+		n++
+	}
+	if total != 89 || n != 89 {
+		t.Errorf("total=%d played=%d, want 89", total, n)
+	}
+}

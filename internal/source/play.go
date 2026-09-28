@@ -22,7 +22,9 @@ func Play(path string, wait func(time.Duration)) (samples <-chan Sample, total i
 	for s := range all {
 		list = append(list, s)
 	}
-	if err := <-errc; err != nil {
+	// A recording can end mid-sample (tidemark quit or was killed while mactop was writing a
+	// line), so a bad line only matters if nothing before it decoded.
+	if err := <-errc; err != nil && len(list) == 0 {
 		return nil, 0, time.Time{}, fmt.Errorf("%s: %w", path, err)
 	}
 	if len(list) == 0 {
