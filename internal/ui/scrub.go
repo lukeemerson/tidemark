@@ -58,7 +58,9 @@ func (m Model) at() Model {
 }
 
 // track draws cells for n samples with the cursor at pos: ▮ up to the cursor, ▯ after, and ▲
-// wherever an alert fired (alert holds positions on the same 0..n-1 scale).
+// wherever an alert fired (alert holds positions on the same 0..n-1 scale). The cursor's own cell
+// always reads as the cursor: a ▲ there is drawn in the cursor's colour, since the cell spans
+// several samples and the one under the cursor may come before the alert.
 func track(pos, n, cells int, alert func(lo, hi int) bool) string {
 	if n <= 0 || cells <= 0 {
 		return ""
@@ -68,6 +70,8 @@ func track(pos, n, cells int, alert func(lo, hi int) bool) string {
 	for i := 0; i < cells; i++ {
 		lo, hi := i*n/cells, max((i+1)*n/cells, i*n/cells+1)
 		switch {
+		case alert(lo, hi) && i == cur:
+			b.WriteString(mid.Render("▲"))
 		case alert(lo, hi):
 			b.WriteString(high.Render("▲"))
 		case i <= cur:

@@ -148,3 +148,17 @@ func TestReplayHeader(t *testing.T) {
 		t.Errorf("end of a recording should stay on screen, not quit")
 	}
 }
+
+// A tick in the cursor's own cell keeps the cursor visible: ▲ in the cursor colour, not the
+// alert colour (design's finding on bb97cde: cursor on sample 55, alert at 56, same cell).
+func TestTrackCursorOnTick(t *testing.T) {
+	alertAt := func(a int) func(lo, hi int) bool { return func(lo, hi int) bool { return a >= lo && a < hi } }
+	onCursor := track(55, 90, 30, alertAt(56))
+	if !strings.Contains(onCursor, mid.Render("▲")) || strings.Contains(onCursor, high.Render("▲")) {
+		t.Errorf("tick in the cursor's cell should be drawn as the cursor")
+	}
+	elsewhere := track(30, 90, 30, alertAt(56))
+	if !strings.Contains(elsewhere, high.Render("▲")) {
+		t.Errorf("tick away from the cursor should stay in the alert colour")
+	}
+}
