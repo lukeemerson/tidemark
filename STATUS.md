@@ -10,6 +10,7 @@ Where tidemark stands, as of 2026-09-28. Everything is on `main`; the `3d` branc
 - Readable without colour: textured upload bars, and a labelled scale on every graph.
 - **History** (SPEC.md): `-rec` / `-play` with mactop's raw stream; `space` pause, `[ ]` step, `{ }` ±30 through 400 samples; alert ticks `▲` in the track.
 - **Diagnosis line**: throttle > swap > runaway (≥100% CPU for 10 samples); it follows the scrub cursor.
+- **Disk store** (STORE-SPEC.md): 24 h on disk, with a raw hour at full detail plus 10 s summaries; `z` cycles the span 400 / 1h / 24h, with gaps and stored alert ticks.
 - Release packaging: `scripts/release.sh`, MIT.
 
 ### 3D: tidalrat (Rust, `monitor-3d/tidalrat/`)
@@ -38,8 +39,7 @@ Proposed, not yet decided with Luke:
 | --- | --- | --- |
 | 2D | on-demand settings menu | README |
 | 2D | "what changed?" feed; processes grouped by project | README |
-| 2D | disk store: specced, build-2d is building it | STORE-SPEC.md |
-| 2D | compare view: specced, builds after the store | COMPARE-SPEC.md |
+| 2D | compare view: specced, queued with build-2d | COMPARE-SPEC.md |
 | 2D | process actions (kill/renice with a y/n confirm) | TODO-future |
 | 3D | alert `▲` markers on the terrain's time axis | TODO-future |
 | 3D | `--die` chip floorplan, then the throttle hotspot on it | PLAN row 3 |
