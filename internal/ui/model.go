@@ -67,6 +67,15 @@ type Model struct {
 	ended  bool        // replay: the recording has finished
 }
 
+// procName is a process's display name. Live, a bare version number is looked up by PID; on
+// replay the PIDs belong to the recording Mac, so the recorded name is used as is.
+func (m Model) procName(pid int, command string) string {
+	if m.replay != nil {
+		return command
+	}
+	return m.names.Name(pid, command)
+}
+
 // sysOK is true when load and memory-pressure readings exist for the sample on screen.
 func (m Model) sysOK() bool { return m.have && !m.noSys }
 
@@ -234,7 +243,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.hdram = push(m.hdram, m.s.SoC.DRAMRead+m.s.SoC.DRAMWrite)
 		var d diagState
 		var fired bool
-		m.dg, d, fired = m.dg.step(m.s, m.sys, !m.noSys, m.names.Name)
+		m.dg, d, fired = m.dg.step(m.s, m.sys, !m.noSys, m.procName)
 		m.past = append(m.past, m.s)
 		m.psys = append(m.psys, m.sys)
 		m.diag = append(m.diag, d)

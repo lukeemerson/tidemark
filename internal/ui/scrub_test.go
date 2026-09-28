@@ -178,3 +178,30 @@ func TestReplayUsesRecordedMachine(t *testing.T) {
 		t.Errorf("header before the first sample = %q", head)
 	}
 }
+
+// On replay, process names are the recorded ones: no PID lookup on this Mac (SPEC §1, 714f9af).
+// Here the PID is this test process, which a live lookup would resolve to the test binary.
+func TestReplayKeepsRecordedProcessNames(t *testing.T) {
+	all := recording(t)
+	live := New(nil, nil, "", "", nil)
+	replay := New(nil, nil, "", "", nil).Replay(len(all), all[0])
+	pid := os.Getpid()
+	if got := live.procName(pid, "1.2.3"); got == "1.2.3" {
+		t.Fatalf("live lookup should resolve this PID, got %q", got)
+	}
+	if got := replay.procName(pid, "1.2.3"); got != "1.2.3" {
+		t.Errorf("replay looked up a local PID: %q", got)
+	}
+}
+
+// A recording without core counts keeps this Mac's, so the core bars don't vanish.
+func TestReplayKeepsLocalCoresWhenUnrecorded(t *testing.T) {
+	all := recording(t)
+	old := all[0]
+	old.SystemInfo.ECoreCount, old.SystemInfo.PCoreCount = 0, 0
+	local := New(nil, nil, "", "", nil)
+	m := local.Replay(len(all), old)
+	if m.ne != local.ne || m.np != local.np || m.ne+m.np == 0 {
+		t.Errorf("cores = %dE+%dP, want this Mac's %dE+%dP", m.ne, m.np, local.ne, local.np)
+	}
+}

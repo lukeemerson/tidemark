@@ -25,8 +25,17 @@ type replayInfo struct {
 func (m Model) Replay(total int, first source.Sample) Model {
 	m.replay = &replayInfo{total, first.Timestamp}
 	m.noSys = true
-	if si := first.SystemInfo; si.Name != "" {
-		m.name, m.ne, m.np = si.Name, si.ECoreCount, si.PCoreCount
+	// each field only when the recording has it, so an older recording keeps this Mac's value
+	// rather than, say, zero cores
+	si := first.SystemInfo
+	if si.Name != "" {
+		m.name = si.Name
+	}
+	if si.ECoreCount > 0 {
+		m.ne = si.ECoreCount
+	}
+	if si.PCoreCount > 0 {
+		m.np = si.PCoreCount
 	}
 	if first.Memory.Total > 0 {
 		m.memTotal = first.Memory.Total

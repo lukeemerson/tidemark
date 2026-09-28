@@ -244,7 +244,7 @@ func (m Model) procTable(w, n int, by string) []string {
 		}
 		p := m.s.Processes[i]
 		pid := dim.Render(" " + fit(fmt.Sprint(p.PID), 8))
-		name := fit(m.names.Name(p.PID, p.Command), nameW)
+		name := fit(m.procName(p.PID, p.Command), nameW)
 		cpu := fmt.Sprintf("%7.1f", p.CPUPercent)
 		memp := dim.Render(fmt.Sprintf("%8.1f", p.MemPercent))
 		if by == "gpu" {
