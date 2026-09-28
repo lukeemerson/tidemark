@@ -165,7 +165,7 @@ func vbar2(a, b []float64, h int, top float64, ca, cb lipgloss.Style) []string {
 	eighths := func(v float64, r int) int { return min(max(int(v/top*float64(h*8)+0.5)-(r-1)*8, 0), 8) }
 	solid := func(v float64, r int) string { return string(vb[eighths(v, r)]) }
 	textured := func(v float64, r int) string {
-		if eighths(v, r) >= 4 {
+		if eighths(v, r) >= 4 || (r == 1 && v > 0) { // like graph(): a non-zero value never vanishes
 			return "▓"
 		}
 		return " "
@@ -254,13 +254,15 @@ func graph(hist []float64, w, h int, top float64, col lipgloss.Style) []string {
 }
 
 // axisGraph is graph with its scale: the top value labelled in a left gutter on the first row.
+// The gutter is a fixed 6 columns (right-aligned) so the graph doesn't shift as the peak's label
+// changes width ("9.9K/s" → "10K/s").
 func axisGraph(hist []float64, w, h int, top float64, label string, col lipgloss.Style) []string {
-	g := lipgloss.Width(label) + 1
-	rows := graph(hist, w-g, h, top, col)
+	lw := max(lipgloss.Width(label), 6)
+	rows := graph(hist, w-lw-1, h, top, col)
 	for i := range rows {
-		l := rep(" ", g)
+		l := rep(" ", lw+1)
 		if i == 0 {
-			l = label + " "
+			l = rep(" ", lw-lipgloss.Width(label)) + label + " "
 		}
 		rows[i] = dim.Render(l) + rows[i]
 	}
