@@ -11,7 +11,7 @@
 
 ## 2. Markers on the terrain
 
-- `▲` in `level-high` on the floor plane, 2.5 lane widths outside the floor's left edge, level with the time row where the rule fired.
+- `▲` in `level-high` on the floor plane, 2.5 lane widths outside whichever side edge of the floor faces screen-left at the current yaw (x = ±(half_x + 2.5)), level with the time row where the rule fired. The markers switch sides as the terrain rotates past side-on.
 - It's anchored in 3D, so it turns and tilts with the terrain.
 - Always drawn on top, like the core labels. It's never skipped for lack of space.
 - Only alerts inside the 90-sample window get a marker. Older ones show only as track ticks.
@@ -23,7 +23,11 @@
 - After the time comes `  ·  N alerts`, counting alerts in the 400-sample history.
 - When the header narrows, the alert count drops first, before the core facts.
 
-## 4. Out of scope
+## 4. Also in this build
+
+- Remove the back-edge `t−Ns` floor label. It never found room to draw, and the header already shows t−Ns for the cursor (Luke).
+
+## 5. Out of scope
 
 - A diagnosis line or rule text in tidalrat.
 - Markers in `--cores`.
@@ -32,5 +36,5 @@
 
 ## Judgment calls (design)
 
-- **Beside the floor, not on it:** the front lanes hide the floor's left edge from behind (checked in a render at yaw 0, pitch 0.45). 2.5 lanes out lands in clear space.
+- **Beside the floor, not on it:** the front lanes hide the floor's left edge from behind (checked in a render at yaw 0, pitch 0.45). 2.5 lanes out lands in clear space. At the default yaw 0.6 the fixed left side swung behind the terrain for old alerts (build-3d's capture), so the side follows the view (Luke).
 - **`▲` only, no label:** several alerts in the window would crowd the terrain. The rule text belongs to a later diagnosis line.
