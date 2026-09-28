@@ -134,3 +134,18 @@ func TestPrune(t *testing.T) {
 		t.Errorf("%d buckets in the last 24 h, want 2 (the 25 h one and the cut-off line dropped)", len(bs))
 	}
 }
+
+// Fan RPM averages over the samples that reported a fan, not all of them (review nit on 94dcedc).
+func TestFanAverageIgnoresMissingFans(t *testing.T) {
+	b := newBucket(t0)
+	name := func(_ int, c string) string { return c }
+	with := sample(t0, 1)
+	with.Fans = append(with.Fans, struct {
+		RPM float64 `json:"rpm"`
+	}{RPM: 2000})
+	b.add(with, source.Sys{}, false, false, name)
+	b.add(sample(t0.Add(time.Second), 1), source.Sys{}, false, false, name)
+	if got := b.close().Avg.Fans[0].RPM; got != 2000 {
+		t.Errorf("fan average = %v, want 2000", got)
+	}
+}

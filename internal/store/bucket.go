@@ -22,10 +22,14 @@ type Bucket struct {
 	Alert    bool               `json:"alert"`    // a diagnosis rule started firing
 }
 
+// Proc is one of a bucket's top processes, as it was at its CPU peak in the bucket.
 type Proc struct {
 	PID  int     `json:"pid"`
 	Name string  `json:"name"`
 	CPU  float64 `json:"cpu"` // peak % in the bucket
+	GPU  float64 `json:"gpu"` // ms/s
+	Mem  float64 `json:"mem"` // %
+	RSS  float64 `json:"rss"` // KB
 }
 
 // Series names the graphed values a bucket keeps a peak for, and how to read each from a sample.
@@ -59,6 +63,7 @@ type bucket struct {
 	peak  map[string]float64
 	load  [3]float64
 	sysN  int
+	fanN  int // samples that reported a fan: mactop can omit them
 	press int
 	free  int
 	procs map[int]Proc
@@ -106,6 +111,7 @@ func (b *bucket) add(s source.Sample, sys source.Sys, sysOK, fired bool, name fu
 			a.Fans[0].RPM = 0
 		}
 		a.Fans[0].RPM += s.Fans[0].RPM
+		b.fanN++
 	}
 	if s.ThermalState != "" && s.ThermalState != "Nominal" {
 		a.ThermalState = s.ThermalState // the bucket keeps any throttling it saw
@@ -123,7 +129,7 @@ func (b *bucket) add(s source.Sample, sys source.Sys, sysOK, fired bool, name fu
 	}
 	for _, p := range s.Processes {
 		if q, ok := b.procs[p.PID]; !ok || p.CPUPercent > q.CPU {
-			b.procs[p.PID] = Proc{p.PID, name(p.PID, p.Command), p.CPUPercent}
+			b.procs[p.PID] = Proc{p.PID, name(p.PID, p.Command), p.CPUPercent, p.GPUMsPerS, p.MemPercent, p.RSSKB}
 		}
 	}
 	b.alert = b.alert || fired
@@ -146,8 +152,8 @@ func (b *bucket) close() Bucket {
 		&a.NetDisk.ReadKBytes, &a.NetDisk.WriteKB} {
 		*v /= n
 	}
-	if len(a.Fans) > 0 {
-		a.Fans[0].RPM /= n
+	if b.fanN > 0 {
+		a.Fans[0].RPM /= float64(b.fanN)
 	}
 	if a.ThermalState == "" {
 		a.ThermalState = b.last.ThermalState
