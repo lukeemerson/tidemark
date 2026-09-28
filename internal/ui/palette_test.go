@@ -43,7 +43,7 @@ func TestSmallUploadVisible(t *testing.T) {
 func TestAxisGraphStableWidth(t *testing.T) {
 	// where the graph starts: the gutter's width on a row without a label
 	edge := func(label string) int {
-		row := ansi.Strip(axisGraph([]float64{1, 2, 3}, 40, 2, 3, label, dim)[1])
+		row := ansi.Strip(axisGraph([]float64{1, 2, 3}, nil, 40, 2, 3, label, dim)[1])
 		return len(row) - len(strings.TrimLeft(row, " "))
 	}
 	for _, pair := range [][2]string{{"9.9K/s", "10K/s"}, {"9.9W", "10.0W"}, {"100%", "100K/s"}} {

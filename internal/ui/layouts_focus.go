@@ -28,8 +28,8 @@ func (m Model) computeLayout(rows, w int) []string {
 		gh += extra
 	}
 	out = append(out, hjoin(
-		square.box("cpu", cpuT, hw, gh, axisGraph(m.hcpu, hw-4, gh-2, 100, "100%", cCPU)...),
-		square.box("gpu", gpuT, rw, gh, axisGraph(m.hgpu, rw-4, gh-2, 100, "100%", cGPU)...),
+		square.box("cpu", cpuT, hw, gh, axisGraph(m.hcpu, m.ghost(sCPU), hw-4, gh-2, 100, "100%", cCPU)...),
+		square.box("gpu", gpuT, rw, gh, axisGraph(m.hgpu, m.ghost(sGPU), rw-4, gh-2, 100, "100%", cGPU)...),
 	)...)
 
 	out = append(out, hjoin(
@@ -66,7 +66,7 @@ func (m Model) memoryLayout(rows, w int) []string {
 	mem, soc := m.s.Memory, m.s.SoC
 	out := []string{m.head(w)}
 
-	memL := append([]string{m.pMem(lw - 4)[0]}, axisGraph(m.hmem, lw-4, 7, 100, "100%", cMem)...)
+	memL := append([]string{m.pMem(lw - 4)[0]}, axisGraph(m.hmem, m.ghost(sMem), lw-4, 7, 100, "100%", cMem)...)
 	free := float64(m.sys.FreePct)
 	usedCol := level(100 - free)
 	load := dim.Render("—")
@@ -96,9 +96,9 @@ func (m Model) memoryLayout(rows, w int) []string {
 	loadTop := max(hmax(m.hload, 1), float64(m.ne+m.np))
 	out = append(out, hjoin(
 		dashed.box("swap", num(m.have, "%.2f GB", mem.SwapUsed/1073741824), hw, sh,
-			axisGraph(m.hswap, hw-4, sh-2, swapTop, gb(swapTop)+"G", cMem)...),
+			axisGraph(m.hswap, m.ghost(sSwap), hw-4, sh-2, swapTop, gb(swapTop)+"G", cMem)...),
 		dashed.box("load", num(m.sysOK(), "%.2f", m.sys.Load[0]), w-hw-1, sh,
-			axisGraph(m.hload, w-hw-5, sh-2, loadTop, fmt.Sprintf("%.0f", loadTop), cCPU)...),
+			axisGraph(m.hload, m.ghost(sLoad), w-hw-5, sh-2, loadTop, fmt.Sprintf("%.0f", loadTop), cCPU)...),
 	)...)
 
 	ph := rows - len(out)
@@ -119,17 +119,17 @@ func (m Model) ioLayout(rows, w int) []string {
 	if extra := rows - 1 - nh - dh - 10; extra > 0 {
 		nh, dh = nh+extra-extra/2, dh+extra/2
 	}
-	rg := func(t string, v float64, hist []float64, bw, bh int, col lipgloss.Style) []string {
+	rg := func(t string, v float64, hist, ghost []float64, bw, bh int, col lipgloss.Style) []string {
 		top := hmax(hist, 1)
-		return hdashed.box(t, rate(m.have, v), bw, bh, axisGraph(hist, bw-4, bh-2, top, shortRate(top), col)...)
+		return hdashed.box(t, rate(m.have, v), bw, bh, axisGraph(hist, ghost, bw-4, bh-2, top, shortRate(top), col)...)
 	}
 	out = append(out, hjoin(
-		rg("net ↓", nd.InBytes, m.hnin, hw, nh, cDown),
-		rg("net ↑", nd.OutBytes, m.hnout, rw, nh, cUp),
+		rg("net ↓", nd.InBytes, m.hnin, m.ghost(sNin), hw, nh, cDown),
+		rg("net ↑", nd.OutBytes, m.hnout, m.ghost(sNout), rw, nh, cUp),
 	)...)
 	out = append(out, hjoin(
-		rg("disk read", nd.ReadKBytes*1024, m.hdr, hw, dh, cDown),
-		rg("disk write", nd.WriteKB*1024, m.hdw, rw, dh, cUp),
+		rg("disk read", nd.ReadKBytes*1024, m.hdr, m.ghost(sDR), hw, dh, cDown),
+		rg("disk write", nd.WriteKB*1024, m.hdw, m.ghost(sDW), rw, dh, cUp),
 	)...)
 
 	ph := rows - len(out)

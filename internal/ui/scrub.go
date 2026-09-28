@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -78,19 +79,26 @@ func (m Model) at() Model {
 	return m
 }
 
-// track draws cells for n samples with the cursor at pos: ▮ up to the cursor, ▯ after, and ▲
-// wherever an alert fired (alert holds positions on the same 0..n-1 scale). The cursor's own cell
-// always reads as the cursor: a ▲ there is drawn in the cursor's colour, since the cell spans
-// several samples and the one under the cursor may come before the alert.
-func track(pos, n, cells int, alert func(lo, hi int) bool) string {
+// track draws cells for n samples with the cursor at pos: ▮ up to the cursor, ▯ after, ▲
+// wherever an alert fired (alert holds positions on the same 0..n-1 scale), and a dim B at
+// bpos, a marked B (-1 for none). The cursor's own cell always reads as the cursor: a ▲ there is
+// drawn in the cursor's colour, since the cell spans several samples and the one under the
+// cursor may come before the alert, and B shows once the cursor moves off it.
+func track(pos, n, cells int, alert func(lo, hi int) bool, bpos int) string {
 	if n <= 0 || cells <= 0 {
 		return ""
 	}
 	cur := pos * cells / n
+	bc := -1
+	if bpos >= 0 && bpos < n {
+		bc = bpos * cells / n
+	}
 	var b strings.Builder
 	for i := 0; i < cells; i++ {
 		lo, hi := i*n/cells, max((i+1)*n/cells, i*n/cells+1)
 		switch {
+		case i == bc && i != cur:
+			b.WriteString(dim.Render("B"))
 		case alert(lo, hi) && i == cur:
 			b.WriteString(mid.Render("▲"))
 		case alert(lo, hi):
@@ -136,7 +144,15 @@ func (m Model) scrubHead(w int) string {
 		return false
 	}
 
-	drawTrack := func(cells int) string { return track(pos, n, cells, alertIn) }
+	bpos := -1 // B's sample, found by time: it may have been marked on another span
+	if m.mark != nil && len(m.past) > 0 && !m.mark.s.Timestamp.Before(m.past[0].Timestamp) &&
+		!m.mark.s.Timestamp.After(m.past[len(m.past)-1].Timestamp) {
+		i, _ := slices.BinarySearchFunc(m.past, m.mark.s.Timestamp, func(s source.Sample, t time.Time) int {
+			return s.Timestamp.Compare(t)
+		})
+		bpos = m.seq - len(m.past) + i - oldest
+	}
+	drawTrack := func(cells int) string { return track(pos, n, cells, alertIn, bpos) }
 	var status, when, hints string
 	if m.span != spanMem && len(m.tier) > 0 { // a stored tier: time-based track, span label
 		drawTrack = m.tierTrack
@@ -160,6 +176,10 @@ func (m Model) scrubHead(w int) string {
 		}
 		hints = dim.Render("   [ ] step  { } ±30  space live")
 	}
+	vs := "" // how far B is from the sample on screen
+	if m.mark != nil {
+		vs = dim.Render("·  " + m.vsText(false))
+	}
 	if nAlerts > 0 {
 		hints = dim.Render(fmt.Sprintf("  ·  %d alert%s", nAlerts, map[bool]string{true: "", false: "s"}[nAlerts == 1]))
 	}
@@ -167,8 +187,10 @@ func (m Model) scrubHead(w int) string {
 
 	full := func(cells int, withHints, withInd bool) string {
 		r := status + "   " + dim.Render("◀ ") + drawTrack(cells) + dim.Render(" ▶")
-		if when != "" {
-			r += "  " + when
+		for _, p := range []string{when, vs} {
+			if p != "" {
+				r += "  " + p
+			}
 		}
 		if withHints {
 			r += hints
@@ -198,6 +220,9 @@ func (m Model) scrubHead(w int) string {
 		if m.span != spanMem && len(m.tier) > 0 {
 			tail = dim.Render(" " + spanNames[m.span] + " t−" + ago(m.now().Sub(m.tier[m.tcur].t)))
 		}
+	}
+	if m.mark != nil {
+		tail += dim.Render("  " + m.vsText(true))
 	}
 	fixed := lipgloss.Width(name) + 1 + lipgloss.Width(sym) + lipgloss.Width(" ◀ ") + lipgloss.Width(" ▶") + lipgloss.Width(tail)
 	cells := min(max(w-fixed, 4), 30)

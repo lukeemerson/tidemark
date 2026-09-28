@@ -20,7 +20,7 @@ func (m Model) glanceLayout(rows, w int) []string {
 	}
 	ph := rows - len(out)
 	if extra := ph - procMax; extra >= 4 {
-		out = append(out, rules.box("cpu", m.hCPU(), w, extra, axisGraph(m.hcpu, w-4, extra-2, 100, "100%", cCPU)...)...)
+		out = append(out, rules.box("cpu", m.hCPU(), w, extra, axisGraph(m.hcpu, m.ghost(sCPU), w-4, extra-2, 100, "100%", cCPU)...)...)
 		ph = procMax
 	}
 	return append(out, rules.box(m.procTitle("processes"), "", w, ph, m.pProc(w-4, ph-3)...)...)
@@ -37,21 +37,21 @@ func (m Model) wallLayout(rows, w int) []string {
 	nd, soc := m.s.NetDisk, m.s.SoC
 	h := (rows - 1) / 6
 	first := rows - 1 - 5*h // the cpu graph takes the remainder
-	g := func(t, rt string, hist []float64, bw, bh int, top float64, label string, col lipgloss.Style) []string {
-		return block.box(t, rt, bw, bh, axisGraph(hist, bw-4, bh-2, top, label, col)...)
+	g := func(t, rt string, hist, ghost []float64, bw, bh int, top float64, label string, col lipgloss.Style) []string {
+		return block.box(t, rt, bw, bh, axisGraph(hist, ghost, bw-4, bh-2, top, label, col)...)
 	}
 	freq := dim.Render(fmt.Sprintf("E %s · P %s MHz", num(m.have, "%.0f", soc.EFreqMHz), num(m.have, "%.0f", soc.PFreqMHz)))
-	out = append(out, g("cpu", freq+"  "+m.hCPU(), m.hcpu, w, first, 100, "100%", cCPU)...)
-	out = append(out, g("gpu", m.hGPU(), m.hgpu, w, h, 100, "100%", cGPU)...)
-	out = append(out, g("power", m.hPow(), m.hpow, w, h, hmax(m.hpow, 1), fmt.Sprintf("%.1fW", hmax(m.hpow, 1)), cPower)...)
-	out = append(out, g("memory", m.hMem(), m.hmem, w, h, 100, "100%", cMem)...)
+	out = append(out, g("cpu", freq+"  "+m.hCPU(), m.hcpu, m.ghost(sCPU), w, first, 100, "100%", cCPU)...)
+	out = append(out, g("gpu", m.hGPU(), m.hgpu, m.ghost(sGPU), w, h, 100, "100%", cGPU)...)
+	out = append(out, g("power", m.hPow(), m.hpow, m.ghost(sPow), w, h, hmax(m.hpow, 1), fmt.Sprintf("%.1fW", hmax(m.hpow, 1)), cPower)...)
+	out = append(out, g("memory", m.hMem(), m.hmem, m.ghost(sMem), w, h, 100, "100%", cMem)...)
 	out = append(out, hjoin(
-		g("net ↓", rate(m.have, nd.InBytes), m.hnin, hw, h, hmax(m.hnin, 1), shortRate(hmax(m.hnin, 1)), cDown),
-		g("net ↑", rate(m.have, nd.OutBytes), m.hnout, rw, h, hmax(m.hnout, 1), shortRate(hmax(m.hnout, 1)), cUp),
+		g("net ↓", rate(m.have, nd.InBytes), m.hnin, m.ghost(sNin), hw, h, hmax(m.hnin, 1), shortRate(hmax(m.hnin, 1)), cDown),
+		g("net ↑", rate(m.have, nd.OutBytes), m.hnout, m.ghost(sNout), rw, h, hmax(m.hnout, 1), shortRate(hmax(m.hnout, 1)), cUp),
 	)...)
 	return append(out, hjoin(
-		g("disk read", rate(m.have, nd.ReadKBytes*1024), m.hdr, hw, h, hmax(m.hdr, 1), shortRate(hmax(m.hdr, 1)), cDown),
-		g("disk write", rate(m.have, nd.WriteKB*1024), m.hdw, rw, h, hmax(m.hdw, 1), shortRate(hmax(m.hdw, 1)), cUp),
+		g("disk read", rate(m.have, nd.ReadKBytes*1024), m.hdr, m.ghost(sDR), hw, h, hmax(m.hdr, 1), shortRate(hmax(m.hdr, 1)), cDown),
+		g("disk write", rate(m.have, nd.WriteKB*1024), m.hdw, m.ghost(sDW), rw, h, hmax(m.hdw, 1), shortRate(hmax(m.hdw, 1)), cUp),
 	)...)
 }
 
@@ -93,14 +93,14 @@ func (m Model) thermalLayout(rows, w int) []string {
 		kv("battery", batt),
 	}
 	out = append(out, hjoin(
-		ascii.box("power", m.hPow(), lw, th, axisGraph(m.hpow, lw-4, th-2, peak, fmt.Sprintf("%.1fW", peak), cPower)...),
+		ascii.box("power", m.hPow(), lw, th, axisGraph(m.hpow, m.ghost(sPow), lw-4, th-2, peak, fmt.Sprintf("%.1fW", peak), cPower)...),
 		ascii.box("energy", "", rw, th, readout...),
 	)...)
-	cpuT := num(m.have, "%.0f°", soc.CPUTemp)
+	cpuT := withB(num(m.have, "%.0f°", soc.CPUTemp), m.vsB(sTC))
 	gpuT := num(m.have, "%.0f°", soc.GPUTemp)
 	out = append(out, hjoin(
-		ascii.box("cpu temp", cpuT, hw, tg, axisGraph(m.htc, hw-4, tg-2, 110, "110°", cTemp)...),
-		ascii.box("gpu temp", gpuT, w-hw-1, tg, axisGraph(m.htg, w-hw-5, tg-2, 110, "110°", cTemp)...),
+		ascii.box("cpu temp", cpuT, hw, tg, axisGraph(m.htc, m.ghost(sTC), hw-4, tg-2, 110, "110°", cTemp)...),
+		ascii.box("gpu temp", gpuT, w-hw-1, tg, axisGraph(m.htg, m.ghost(sTG), w-hw-5, tg-2, 110, "110°", cTemp)...),
 	)...)
 	return append(out, ascii.box(m.procTitle("processes"), "", w, ph, m.pProc(w-4, ph-3)...)...)
 }

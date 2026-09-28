@@ -212,12 +212,49 @@ var fillL = []int{0, 64, 68, 70, 71}
 var fillR = []int{0, 128, 160, 176, 184}
 
 // graph draws the newest 2w values of hist as a w×h braille area chart (two samples per cell)
-// in the series colour.
-func graph(hist []float64, w, h int, top float64, col lipgloss.Style) []string {
+// in the series colour. ghost, when set, is a compared window drawn dim behind it, end-aligned
+// the same way; a cell with any of hist's dots shows hist's alone.
+func graph(hist, ghost []float64, w, h int, top float64, col lipgloss.Style) []string {
 	if top <= 0 {
 		top = 1
 	}
 	w = max(w, 0) // narrow terminals give negative widths
+	cells := dots(hist, w, h, top)
+	var gc []int
+	if ghost != nil {
+		gc = dots(ghost, w, h, top)
+	}
+	style := func(ghost bool) lipgloss.Style {
+		if ghost {
+			return dim
+		}
+		return col
+	}
+	out := make([]string, h)
+	for r := 0; r < h; r++ {
+		var b, run strings.Builder
+		runGhost := false
+		for c := 0; c < w; c++ {
+			i := r*w + c
+			v, isGhost := cells[i], false
+			if v == 0 && gc != nil && gc[i] != 0 {
+				v, isGhost = gc[i], true
+			}
+			if isGhost != runGhost && run.Len() > 0 {
+				b.WriteString(style(runGhost).Render(run.String()))
+				run.Reset()
+			}
+			run.WriteRune(rune(0x2800 + v))
+			runGhost = isGhost
+		}
+		b.WriteString(style(runGhost).Render(run.String()))
+		out[r] = b.String()
+	}
+	return out
+}
+
+// dots is graph's braille dot bits per cell, row by row.
+func dots(hist []float64, w, h int, top float64) []int {
 	cells := make([]int, w*h)
 	n := len(hist)
 	for c := 0; c < w; c++ {
@@ -242,23 +279,15 @@ func graph(hist []float64, w, h int, top float64, col lipgloss.Style) []string {
 			}
 		}
 	}
-	out := make([]string, h)
-	for r := 0; r < h; r++ {
-		var b strings.Builder
-		for c := 0; c < w; c++ {
-			b.WriteRune(rune(0x2800 + cells[r*w+c]))
-		}
-		out[r] = col.Render(b.String())
-	}
-	return out
+	return cells
 }
 
 // axisGraph is graph with its scale: the top value labelled in a left gutter on the first row.
 // The gutter is a fixed 6 columns (right-aligned) so the graph doesn't shift as the peak's label
 // changes width ("9.9K/s" → "10K/s").
-func axisGraph(hist []float64, w, h int, top float64, label string, col lipgloss.Style) []string {
+func axisGraph(hist, ghost []float64, w, h int, top float64, label string, col lipgloss.Style) []string {
 	lw := max(lipgloss.Width(label), 6)
-	rows := graph(hist, w-lw-1, h, top, col)
+	rows := graph(hist, ghost, w-lw-1, h, top, col)
 	for i := range rows {
 		l := rep(" ", lw+1)
 		if i == 0 {

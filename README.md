@@ -63,6 +63,7 @@ the cloudflare panels still show any runs it saved earlier.
 | `space` | pause (the screen holds; samples keep arriving) / back to live |
 | `[` `]` · `{` `}` | while paused: step one unit · jump 30 (a sample, or 10 s on the 24h span) |
 | `z` | scrub span: the 400 samples in memory → the last hour on disk → the last 24 h (10 s buckets) |
+| `m` | mark the moment on screen as B: graphs ghost it, values show their difference · `m` again clears |
 | `q` | quit |
 
 `tidemark -i 500` samples every 500 ms (default 1000). History is kept in

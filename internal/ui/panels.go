@@ -12,50 +12,34 @@ import (
 
 // Panel contents take the inner width (panel width - 4) and return lines.
 
-func (m Model) hCPU() string {
-	v := num(m.have, "%3.0f%%", m.s.CPUUsage)
+// v is series i's value on screen (compare.go), bold once mactop has reported.
+func (m Model) v(i int) string {
+	x, _ := value(m.s, i)
+	s := num(m.have, valFormat[i], x)
 	if m.have {
-		v = title.Render(v)
+		s = title.Render(s)
 	}
-	return v
+	return s
 }
 
-func (m Model) hGPU() string {
-	v := num(m.have, "%3.0f%%", m.s.GPUUsage)
-	if m.have {
-		v = title.Render(v)
-	}
-	return v
-}
-
-func (m Model) hPow() string {
-	v := num(m.have, "%.1f W", m.s.SoC.TotalPower)
-	if m.have {
-		v = title.Render(v)
-	}
-	return v
-}
-
-func (m Model) hMem() string {
-	v := num(m.have, "%3.0f%%", m.memPct())
-	if m.have {
-		v = title.Render(v)
-	}
-	return v
-}
+// hCPU etc. are box values: the value, then its difference from a marked B.
+func (m Model) hCPU() string { return withB(m.v(sCPU), m.vsB(sCPU)) }
+func (m Model) hGPU() string { return withB(m.v(sGPU), m.vsB(sGPU)) }
+func (m Model) hPow() string { return withB(m.v(sPow), m.vsB(sPow)) }
+func (m Model) hMem() string { return withB(m.v(sMem), m.vsB(sMem)) }
 
 func (m Model) pCPU(w, gh int) []string {
 	soc := m.s.SoC
 	l := dim.Render(" E ") + num(m.have, "%4.0f", soc.EFreqMHz) + dim.Render(" · P ") +
 		num(m.have, "%4.0f", soc.PFreqMHz) + dim.Render(" MHz")
-	return append([]string{l}, axisGraph(m.hcpu, w, gh, 100, "100%", cCPU)...)
+	return append([]string{l}, axisGraph(m.hcpu, m.ghost(sCPU), w, gh, 100, "100%", cCPU)...)
 }
 
 func (m Model) pGPU(w, gh int) []string {
 	soc := m.s.SoC
 	l := dim.Render(fmt.Sprintf(" %s cores  ·  ", m.ngc())) + num(m.have, "%4.0f", soc.GPUFreqMHz) + " MHz" +
 		dim.Render("  ·  ANE ") + num(m.have, "%3.0f%%", soc.ANEActive)
-	return append([]string{l}, axisGraph(m.hgpu, w, gh, 100, "100%", cGPU)...)
+	return append([]string{l}, axisGraph(m.hgpu, m.ghost(sGPU), w, gh, 100, "100%", cGPU)...)
 }
 
 func (m Model) pCores(w, per int) []string {
@@ -94,7 +78,7 @@ func (m Model) pPow(w, h int) []string {
 	out := []string{dim.Render(" system ") + num(m.have, "%.1f", soc.SystemPower) + dim.Render(" W  ·  GPU ") +
 		num(m.have, "%.1f", soc.GPUPower) + dim.Render(" W")}
 	top := hmax(m.hpow, 1)
-	return append(out, axisGraph(m.hpow, w, h, top, fmt.Sprintf("%.1fW", top), cPower)...)
+	return append(out, axisGraph(m.hpow, m.ghost(sPow), w, h, top, fmt.Sprintf("%.1fW", top), cPower)...)
 }
 
 func (m Model) pMem(w int) []string {

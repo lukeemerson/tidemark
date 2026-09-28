@@ -53,7 +53,7 @@ func (m Model) sidebarLayout(rows, w int) []string {
 	if extra := ph - procMax; extra > 0 { // spare height goes to the three graphs
 		ch, gh, pwh, ph = ch+extra-2*(extra/3), gh+extra/3, pwh+extra/3, procMax
 	}
-	right := rounded.box("cpu", freq+"  "+m.hCPU(), gw, ch, axisGraph(m.hcpu, gw-4, ch-2, 100, "100%", cCPU)...)
+	right := rounded.box("cpu", freq+"  "+m.hCPU(), gw, ch, axisGraph(m.hcpu, m.ghost(sCPU), gw-4, ch-2, 100, "100%", cCPU)...)
 	right = append(right, rounded.box("gpu", m.hGPU(), gw, gh, m.pGPU(gw-4, gh-3)...)...)
 	right = append(right, rounded.box("power", m.hPow(), gw, pwh, m.pPow(gw-4, pwh-3)...)...)
 	right = append(right, rounded.box(m.procTitle("processes"), "", gw, ph, m.pProc(gw-4, ph-3)...)...)
@@ -208,8 +208,8 @@ func (m Model) historyBand(pr *int, w int) []string {
 	lw := (w - 3) * 3 / 5
 	rw := w - 3 - lw
 	return band([3]string{"╠", "╬", "╣"}, "cpu history", m.hCPU(), lw, "power history", m.hPow(), rw,
-		axisGraph(m.hcpu, lw-2, extra-1, 100, "100%", cCPU),
-		axisGraph(m.hpow, rw-2, extra-1, hmax(m.hpow, 1), fmt.Sprintf("%.1fW", hmax(m.hpow, 1)), cPower))
+		axisGraph(m.hcpu, m.ghost(sCPU), lw-2, extra-1, 100, "100%", cCPU),
+		axisGraph(m.hpow, m.ghost(sPow), rw-2, extra-1, hmax(m.hpow, 1), fmt.Sprintf("%.1fW", hmax(m.hpow, 1)), cPower))
 }
 
 // procBand is the full-width process table under the last two-column band, rows lines tall.
@@ -239,7 +239,7 @@ func tileBand(ss []stat, w int) []string {
 			j, jb = "╣", "╝"
 		}
 		top += seg(st.name, "", c) + dim.Render(j)
-		val += v + " " + pad(center(st.val, c-2), c-2) + " "
+		val += v + " " + pad(center(st.valIn(c-2), c-2), c-2) + " "
 		sp += v + " " + st.spark(c-2) + " "
 		bot += dim.Render(rep("═", c) + jb)
 	}

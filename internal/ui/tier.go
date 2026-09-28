@@ -143,7 +143,8 @@ func (m Model) atTier() Model {
 }
 
 // tierTrack draws a stored tier over its time window: · where there's no data, ▮ up to the
-// cursor, ▯ after, ▲ where a stored alert flag is set (in the cursor's colour on its own cell).
+// cursor, ▯ after, ▲ where a stored alert flag is set (in the cursor's colour on its own cell),
+// and a dim B on a marked B's cell other than the cursor's.
 func (m Model) tierTrack(cells int) string {
 	if cells <= 0 || len(m.tier) == 0 {
 		return ""
@@ -161,9 +162,15 @@ func (m Model) tierTrack(cells int) string {
 		alert[c] = alert[c] || p.alert
 	}
 	cur := cellOf(m.tier[m.tcur].t)
+	bc := -1
+	if m.mark != nil && !m.mark.s.Timestamp.Before(start) && !m.mark.s.Timestamp.After(end) {
+		bc = cellOf(m.mark.s.Timestamp)
+	}
 	var b strings.Builder
 	for i := 0; i < cells; i++ {
 		switch {
+		case i == bc && i != cur:
+			b.WriteString(dim.Render("B"))
 		case !has[i]:
 			b.WriteString(dim.Render("·"))
 		case alert[i] && i == cur:

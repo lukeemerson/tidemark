@@ -73,6 +73,7 @@ type Model struct {
 	replay   *replayInfo      // set by Replay for -play; nil when live
 	noSys    bool             // replay: sysctl readings (load, pressure) aren't in the recording
 	ended    bool             // replay: the recording has finished
+	mark     *markB           // m: the moment compared against (compare.go); nil when none
 }
 
 // Recorder is the history store as the model sees it: each live sample goes to its summary.
@@ -166,11 +167,13 @@ func push(h []float64, v float64) []float64 {
 	return h
 }
 
-func (m Model) memPct() float64 {
-	if m.s.Memory.Total == 0 {
+func (m Model) memPct() float64 { return memPctOf(m.s) }
+
+func memPctOf(s source.Sample) float64 {
+	if s.Memory.Total == 0 {
 		return 0
 	}
-	return m.s.Memory.Used * 100 / m.s.Memory.Total
+	return s.Memory.Used * 100 / s.Memory.Total
 }
 
 func (m Model) ngc() string {
@@ -243,6 +246,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.span == spanMem {
 				m.tier = nil
 			}
+		case "m":
+			m = m.toggleMark()
 		case "r":
 			if m.cloudy != nil {
 				break
@@ -452,20 +457,26 @@ func (m Model) head(w int) string {
 	}
 	l := title.Render(m.name) + dim.Render(fmt.Sprintf("  ·  %dE + %dP CPU  ·  %s-core GPU", m.ne, m.np, m.ngc()))
 	r := mid.Render("● starting mactop…")
+	vs := "" // after the clock while comparing: "  ·  vs B t−55s"
 	if m.have {
 		r = dim.Render(time.Now().Format("15:04:05"))
-		if b := m.batt(); b != "" && lipgloss.Width(l)+lipgloss.Width(b)+20 <= w {
+		if m.mark != nil { // the battery gives way to the comparison
+			vs = dim.Render("  ·  " + m.vsText(false))
+		} else if b := m.batt(); b != "" && lipgloss.Width(l)+lipgloss.Width(b)+20 <= w {
 			r = dim.Render("battery "+b+"   ") + r
 		}
 	}
 	ind := m.indicator()
-	if lipgloss.Width(l)+lipgloss.Width(r)+lipgloss.Width(ind)+4 <= w {
+	if lipgloss.Width(l)+lipgloss.Width(r)+lipgloss.Width(vs)+lipgloss.Width(ind)+4 <= w {
 		r = dim.Render(ind+"   ") + r
 	}
-	if lipgloss.Width(l)+lipgloss.Width(r)+1 > w {
+	if lipgloss.Width(l)+lipgloss.Width(r)+lipgloss.Width(vs)+1 > w {
 		l = title.Render(m.name) // drop the core counts before the clock
+		if vs != "" {
+			vs = dim.Render("  " + m.vsText(true))
+		}
 	}
-	return pad(spread(l, r, w), w)
+	return pad(spread(l, r+vs, w), w)
 }
 
 // procTitle is a process box's title: its own, or the summary tier's top-5 title.
@@ -490,31 +501,43 @@ func (m Model) indicator() string {
 
 type stat struct {
 	name, val string
+	vs        string // the difference from a marked B
 	hist      []float64
 	top       float64
 	col       lipgloss.Style // the series colour: sparkline only, never the value
 }
 
 func (m Model) statList() []stat {
-	temp := num(m.have, "%.0f°", m.s.SoC.CPUTemp)
-	if m.have {
-		temp = title.Render(temp)
-	}
 	var dl, ul, lat float64
 	if len(m.runs) > 0 {
 		r := m.runs[len(m.runs)-1]
 		dl, ul, lat = r.Download.Mbps, r.Upload.Mbps, r.IdleLatency.MedianMs
 	}
-	return []stat{
-		{"cpu", m.hCPU(), m.hcpu, 100, cCPU},
-		{"gpu", m.hGPU(), m.hgpu, 100, cGPU},
-		{"power", m.hPow(), m.hpow, hmax(m.hpow, 1), cPower},
-		{"mem", m.hMem(), m.hmem, 100, cMem},
-		{"temp", temp, m.htc, 110, cTemp},
-		{"↓ cf", title.Render(fmt.Sprintf("%.0f Mbps", dl)), m.cfdl, hmax(m.cfdl, 1), cDown},
-		{"↑ cf", title.Render(fmt.Sprintf("%.0f Mbps", ul)), m.cful, hmax(m.cful, 1), cUp},
-		{"ping", title.Render(fmt.Sprintf("%.0f ms", lat)), m.cflat, hmax(m.cflat, 1), cPing},
+	cf := "" // both moments show the same saved speed tests
+	if m.mark != nil {
+		cf = dim.Render("±0")
 	}
+	return []stat{
+		{"cpu", m.v(sCPU), m.vsB(sCPU), m.hcpu, 100, cCPU},
+		{"gpu", m.v(sGPU), m.vsB(sGPU), m.hgpu, 100, cGPU},
+		{"power", m.v(sPow), m.vsB(sPow), m.hpow, hmax(m.hpow, 1), cPower},
+		{"mem", m.v(sMem), m.vsB(sMem), m.hmem, 100, cMem},
+		{"temp", m.v(sTC), m.vsB(sTC), m.htc, 110, cTemp},
+		{"↓ cf", title.Render(fmt.Sprintf("%.0f Mbps", dl)), cf, m.cfdl, hmax(m.cfdl, 1), cDown},
+		{"↑ cf", title.Render(fmt.Sprintf("%.0f Mbps", ul)), cf, m.cful, hmax(m.cful, 1), cUp},
+		{"ping", title.Render(fmt.Sprintf("%.0f ms", lat)), cf, m.cflat, hmax(m.cflat, 1), cPing},
+	}
+}
+
+// valIn is the value with its difference from B in w columns: two spaces apart, one, or the
+// value alone when the difference doesn't fit.
+func (st stat) valIn(w int) string {
+	for _, sep := range []string{"  ", " "} {
+		if v := st.val + sep + st.vs; st.vs != "" && lipgloss.Width(v) <= w {
+			return v
+		}
+	}
+	return st.val
 }
 
 func (st stat) spark(w int) string {
@@ -538,7 +561,7 @@ func (m Model) stats(w int) []string {
 func statLines(ss []stat, w int) []string {
 	var out []string
 	for _, st := range ss {
-		out = append(out, pad(dim.Render(fit(st.name, 6))+pad(st.val, 9)+" "+st.spark(max(w-16, 0)), w))
+		out = append(out, pad(dim.Render(fit(st.name, 6))+pad(st.valIn(9), 9)+" "+st.spark(max(w-16, 0)), w))
 	}
 	return out
 }
@@ -554,7 +577,7 @@ func tileRow(ss []stat, w int) []string {
 			bw = w - (n-1)*(tw+1)
 		}
 		iw := bw - 4
-		blocks = append(blocks, box(st.name, "", bw, 4, center(st.val, iw), st.spark(iw)))
+		blocks = append(blocks, box(st.name, "", bw, 4, center(st.valIn(iw), iw), st.spark(iw)))
 	}
 	return hjoin(blocks...)
 }
