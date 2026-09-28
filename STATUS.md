@@ -28,7 +28,6 @@ Where tidemark stands, as of 2026-09-28. Everything is on `main`; the `3d` branc
 ## Open
 - `-play` process names come from this Mac's PID lookup. The fix is decided for v1 and is with build-2d (SPEC §1).
 - A corrupt line in the middle of a `-play` file ends playback there (minor, known).
-- The tidalrat `--terrain` header cuts its left side mid-token at 110 columns, and its key hints are duplicated in the footer (design finding, sent to build-3d).
 - The real non-`Nominal` thermal state names are unverified: record mactop under sustained load.
 - `monitor-3d/PLAN.md` still says 3D lives on branch `3d`.
 
@@ -39,7 +38,8 @@ Proposed, not yet decided with Luke:
 | --- | --- | --- |
 | 2D | on-demand settings menu | README |
 | 2D | "what changed?" feed; processes grouped by project | README |
-| 2D | disk store, which unlocks compare-two-windows and history longer than 400 samples | TODO-future |
+| 2D | disk store: specced, build-2d is building it | STORE-SPEC.md |
+| 2D | compare view: specced, builds after the store | COMPARE-SPEC.md |
 | 2D | process actions (kill/renice with a y/n confirm) | TODO-future |
 | 3D | alert `▲` markers on the terrain's time axis | TODO-future |
 | 3D | `--die` chip floorplan, then the throttle hotspot on it | PLAN row 3 |
