@@ -58,6 +58,28 @@ Border titles: lipgloss has no titled border, so `box()` in draw.go builds the t
 5. ✅ `l`/`L` layouts (tiles · sidebar · instrument), each with its own line weight and skeleton;
    choice saved to `~/.config/tidemark/config.json`.
 6. On-demand config UI (btop-style, closer to mactop's): more settings behind one menu.
+7. **Colour roles** (dataviz audit, 2026-09-27):
+   - **Identity vs state:** every series gets its own colour slot, and low/mid/high stay reserved for
+     state. Today `mem` wears `mid` (warning), `temp` wears `high` (critical), and `power` and `↑ cf`
+     share cyan.
+   - **Values in text colours:** numbers use text colours (`15.9 W`, `2%`); only the mark carries the hue.
+   - **Braille graphs:** drop the green→amber→red row bands, which put state colours on height and
+     fail the red/green colour-blind check. Use one colour per series, and show state with a label
+     or marker.
+8. **A palette that passes:** colours come from the terminal's 16 ANSI slots, and the validator
+   (`dataviz/validate_palette.js`) failed all four themes tried:
+   - **Too close for anyone:** adjacent series ΔE 5–8 against a floor of 15 (e.g. cyan↔blue).
+   - **Red↔green for colour-blind readers:** ΔE 4.6 in the Earthsong-based Ghostty theme.
+   - **Slot meanings drift:** Alacritty's "yellow" slot is pink, so "warning" renders pink.
+
+   Add an optional built-in truecolor palette, validated for dark and light surfaces and chosen in
+   the config (step 6). ANSI stays the default so terminal themes still apply.
+9. **Readable without colour:**
+   - **Run bars:** tell ↓ and ↑ apart with a second glyph (`█` / `▓`) or a gap, not colour alone.
+   - **Scales:** every graph labels its top value on one axis (cpu `100%`, net and disk peaks, as
+     power does now).
+   - **Inspect cursor:** a keyboard cursor that reads out values at one moment, the terminal's
+     answer to hover. It shares its core with rewind below.
 
 ## Expansion: why this one is better
 
