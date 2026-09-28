@@ -75,8 +75,8 @@ Border titles: lipgloss has no titled border, so `box()` in draw.go builds the t
    Add an optional built-in truecolor palette, validated for dark and light surfaces and chosen in
    the config (step 6). ANSI stays the default so terminal themes still apply.
 9. **Readable without colour:**
-   - **Run bars:** tell ↓ and ↑ apart with a second glyph (`█` / `▓`) or a gap, not colour alone.
-   - **Scales:** every graph labels its top value on one axis (cpu `100%`, net and disk peaks, as
+   - ✅ **Run bars:** ↓ is solid `█`, ↑ is textured `▓`, so they differ by shape as well as colour.
+   - ✅ **Scales:** every graph labels its top value on one axis (cpu `100%`, net and disk peaks, as
      power does now).
    - **Inspect cursor:** a keyboard cursor that reads out values at one moment, the terminal's
      answer to hover. It shares its core with rewind below.

@@ -156,19 +156,25 @@ func barG(p float64, w int, col *lipgloss.Style, on, off string) string {
 var vb = []rune(" ▁▂▃▄▅▆▇█")
 
 // vbar2 draws paired vertical bars, a[i] then b[i], h rows tall (newest pair at the right).
+// a is solid █ to an eighth of a cell; b is textured ▓ to half a cell, so the pair differs by
+// shape as well as colour.
 func vbar2(a, b []float64, h int, top float64, ca, cb lipgloss.Style) []string {
 	if top <= 0 {
 		top = 1
 	}
-	cell := func(v float64, r int) string {
-		e := min(max(int(v/top*float64(h*8)+0.5)-(r-1)*8, 0), 8)
-		return string(vb[e])
+	eighths := func(v float64, r int) int { return min(max(int(v/top*float64(h*8)+0.5)-(r-1)*8, 0), 8) }
+	solid := func(v float64, r int) string { return string(vb[eighths(v, r)]) }
+	textured := func(v float64, r int) string {
+		if eighths(v, r) >= 4 {
+			return "▓"
+		}
+		return " "
 	}
 	var out []string
 	for r := h; r >= 1; r-- {
 		var l strings.Builder
 		for i := range a {
-			l.WriteString(ca.Render(cell(a[i], r)) + cb.Render(cell(b[i], r)) + " ")
+			l.WriteString(ca.Render(solid(a[i], r)) + cb.Render(textured(b[i], r)) + " ")
 		}
 		out = append(out, l.String())
 	}
@@ -245,6 +251,34 @@ func graph(hist []float64, w, h int, top float64, col lipgloss.Style) []string {
 		out[r] = col.Render(b.String())
 	}
 	return out
+}
+
+// axisGraph is graph with its scale: the top value labelled in a left gutter on the first row.
+func axisGraph(hist []float64, w, h int, top float64, label string, col lipgloss.Style) []string {
+	g := lipgloss.Width(label) + 1
+	rows := graph(hist, w-g, h, top, col)
+	for i := range rows {
+		l := rep(" ", g)
+		if i == 0 {
+			l = label + " "
+		}
+		rows[i] = dim.Render(l) + rows[i]
+	}
+	return rows
+}
+
+// shortRate is rate for axis labels: "2.5K/s", "16M/s".
+func shortRate(b float64) string {
+	u := []string{"B", "K", "M", "G"}
+	i := 0
+	for b >= 1024 && i < 3 {
+		b /= 1024
+		i++
+	}
+	if b >= 10 {
+		return fmt.Sprintf("%.0f%s/s", b, u[i])
+	}
+	return fmt.Sprintf("%.1f%s/s", b, u[i])
 }
 
 // hjoin places blocks side by side with a one-column gap, each padded to its widest line.

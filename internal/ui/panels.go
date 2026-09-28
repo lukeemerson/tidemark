@@ -48,14 +48,14 @@ func (m Model) pCPU(w, gh int) []string {
 	soc := m.s.SoC
 	l := dim.Render(" E ") + num(m.have, "%4.0f", soc.EFreqMHz) + dim.Render(" · P ") +
 		num(m.have, "%4.0f", soc.PFreqMHz) + dim.Render(" MHz")
-	return append([]string{l}, graph(m.hcpu, w, gh, 100, cCPU)...)
+	return append([]string{l}, axisGraph(m.hcpu, w, gh, 100, "100%", cCPU)...)
 }
 
 func (m Model) pGPU(w, gh int) []string {
 	soc := m.s.SoC
 	l := dim.Render(fmt.Sprintf(" %s cores  ·  ", m.ngc())) + num(m.have, "%4.0f", soc.GPUFreqMHz) + " MHz" +
 		dim.Render("  ·  ANE ") + num(m.have, "%3.0f%%", soc.ANEActive)
-	return append([]string{l}, graph(m.hgpu, w, gh, 100, cGPU)...)
+	return append([]string{l}, axisGraph(m.hgpu, w, gh, 100, "100%", cGPU)...)
 }
 
 func (m Model) pCores(w, per int) []string {
@@ -94,14 +94,7 @@ func (m Model) pPow(w, h int) []string {
 	out := []string{dim.Render(" system ") + num(m.have, "%.1f", soc.SystemPower) + dim.Render(" W  ·  GPU ") +
 		num(m.have, "%.1f", soc.GPUPower) + dim.Render(" W")}
 	top := hmax(m.hpow, 1)
-	for i, row := range graph(m.hpow, w-7, h, top, cPower) {
-		l := "       "
-		if i == 0 {
-			l = fmt.Sprintf("%5.1fW ", top)
-		}
-		out = append(out, dim.Render(l)+row)
-	}
-	return out
+	return append(out, axisGraph(m.hpow, w, h, top, fmt.Sprintf("%.1fW", top), cPower)...)
 }
 
 func (m Model) pMem(w int) []string {

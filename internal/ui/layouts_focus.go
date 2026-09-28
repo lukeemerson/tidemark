@@ -8,11 +8,6 @@ import (
 
 // Focus layouts: each gives the whole screen to one area of the machine.
 
-// peakGraph is a graph whose first line names its scale: "peak <label>".
-func peakGraph(hist []float64, w, h int, top float64, label string, col lipgloss.Style) []string {
-	return append([]string{dim.Render(" peak " + label)}, graph(hist, w, h-1, top, col)...)
-}
-
 // kv is a readout line: a dim label in a fixed column, then the value.
 func kv(label, val string) string { return dim.Render(" "+fit(label, 10)) + val }
 
@@ -33,8 +28,8 @@ func (m Model) computeLayout(rows, w int) []string {
 		gh += extra
 	}
 	out = append(out, hjoin(
-		square.box("cpu", cpuT, hw, gh, graph(m.hcpu, hw-4, gh-2, 100, cCPU)...),
-		square.box("gpu", gpuT, rw, gh, graph(m.hgpu, rw-4, gh-2, 100, cGPU)...),
+		square.box("cpu", cpuT, hw, gh, axisGraph(m.hcpu, hw-4, gh-2, 100, "100%", cCPU)...),
+		square.box("gpu", gpuT, rw, gh, axisGraph(m.hgpu, rw-4, gh-2, 100, "100%", cGPU)...),
 	)...)
 
 	out = append(out, hjoin(
@@ -71,7 +66,7 @@ func (m Model) memoryLayout(rows, w int) []string {
 	mem, soc := m.s.Memory, m.s.SoC
 	out := []string{m.head(w)}
 
-	memL := append([]string{m.pMem(lw - 4)[0]}, graph(m.hmem, lw-4, 7, 100, cMem)...)
+	memL := append([]string{m.pMem(lw - 4)[0]}, axisGraph(m.hmem, lw-4, 7, 100, "100%", cMem)...)
 	free := float64(m.sys.FreePct)
 	usedCol := level(100 - free)
 	load := dim.Render("—")
@@ -101,9 +96,9 @@ func (m Model) memoryLayout(rows, w int) []string {
 	loadTop := max(hmax(m.hload, 1), float64(m.ne+m.np))
 	out = append(out, hjoin(
 		dashed.box("swap", num(m.have, "%.2f GB", mem.SwapUsed/1073741824), hw, sh,
-			peakGraph(m.hswap, hw-4, sh-3, swapTop, gb(swapTop)+" GB", cMem)...),
+			axisGraph(m.hswap, hw-4, sh-2, swapTop, gb(swapTop)+"G", cMem)...),
 		dashed.box("load", num(m.have, "%.2f", m.sys.Load[0]), w-hw-1, sh,
-			peakGraph(m.hload, w-hw-5, sh-3, loadTop, fmt.Sprintf("%.0f", loadTop), cCPU)...),
+			axisGraph(m.hload, w-hw-5, sh-2, loadTop, fmt.Sprintf("%.0f", loadTop), cCPU)...),
 	)...)
 
 	ph := rows - len(out)
@@ -126,7 +121,7 @@ func (m Model) ioLayout(rows, w int) []string {
 	}
 	rg := func(t string, v float64, hist []float64, bw, bh int, col lipgloss.Style) []string {
 		top := hmax(hist, 1)
-		return hdashed.box(t, rate(m.have, v), bw, bh, peakGraph(hist, bw-4, bh-2, top, rate(true, top), col)...)
+		return hdashed.box(t, rate(m.have, v), bw, bh, axisGraph(hist, bw-4, bh-2, top, shortRate(top), col)...)
 	}
 	out = append(out, hjoin(
 		rg("net ↓", nd.InBytes, m.hnin, hw, nh, cDown),
@@ -151,8 +146,8 @@ func (m Model) ioLayout(rows, w int) []string {
 			}
 			hist = append(hist, dim.Render(lbl)+l)
 		}
-		hist = append(hist, dim.Render(fmt.Sprintf("     Mbps · %d runs · ", len(m.runs)))+cDown.Render("▌")+
-			dim.Render(" down ")+cUp.Render("▌")+dim.Render(" up"))
+		hist = append(hist, dim.Render(fmt.Sprintf("     Mbps · %d runs · ", len(m.runs)))+cDown.Render("█")+
+			dim.Render(" down ")+cUp.Render("▓")+dim.Render(" up"))
 	}
 	return append(out, hjoin(
 		hdashed.box("cloudflare", m.cfLabel(), hw, ph, m.pCF(hw-4)...),
