@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -89,6 +90,23 @@ func (m *Model) loadTier() {
 		}
 	}
 	m.tcur = max(len(m.tier)-1, 0)
+	m.tierStep = medianGap(m.tier, spanStep(m.span))
+}
+
+// medianGap is a tier's usual time between points (at least floor), so a gap in the graphs means
+// time well beyond that, whatever -i the samples were taken at.
+func medianGap(ps []tierPoint, floor time.Duration) time.Duration {
+	var gaps []time.Duration
+	for i := 1; i < len(ps); i++ {
+		if d := ps[i].t.Sub(ps[i-1].t); d > 0 {
+			gaps = append(gaps, d)
+		}
+	}
+	if len(gaps) == 0 {
+		return floor
+	}
+	sort.Slice(gaps, func(i, j int) bool { return gaps[i] < gaps[j] })
+	return max(gaps[len(gaps)/2], floor)
 }
 
 // atTier is at() for a stored tier: the point under the cursor, with every history rebuilt from
@@ -97,7 +115,7 @@ func (m Model) atTier() Model {
 	p := m.tier[m.tcur]
 	m.s, m.sys, m.have, m.noSys, m.recorded = p.s, p.sys, true, !p.sysOK, true
 	m.diag = []diagState{p.diag}
-	step := spanStep(m.span)
+	step := m.tierStep
 	var hs [13][]float64
 	for i, q := range m.tier[:m.tcur+1] {
 		if i > 0 {

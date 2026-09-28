@@ -121,3 +121,30 @@ func TestHourSpan(t *testing.T) {
 		t.Errorf("z from 24h should come back to 400")
 	}
 }
+
+// Samples taken every 3 s (-i 3000) are the tier's normal cadence, not gaps (review on 6b71c35).
+func TestTierGapsFollowTheCadence(t *testing.T) {
+	m := New(nil, nil, "", "", nil)
+	m.span = spanHour
+	for i := 0; i < 6; i++ {
+		s := source.Sample{Timestamp: tierNow.Add(time.Duration(i*3) * time.Second), CPUUsage: 50}
+		m.tier = append(m.tier, tierPoint{t: s.Timestamp, s: s})
+	}
+	m.tcur, m.tierStep = 5, medianGap(m.tier, spanStep(spanHour))
+	if got := m.atTier().hcpu; len(got) != 6 {
+		t.Errorf("3 s cadence read as gaps: hcpu = %v", got)
+	}
+	m.tier[5].t = m.tier[4].t.Add(time.Minute) // a real gap: 20 missed steps
+	m.tierStep = medianGap(m.tier, spanStep(spanHour))
+	if got := m.atTier().hcpu; len(got) <= 6 {
+		t.Errorf("a minute's gap should be drawn blank: hcpu = %v", got)
+	}
+}
+
+// z passes over spans with nothing stored yet.
+func TestZSkipsEmptySpans(t *testing.T) {
+	m := tierModel(t, t.TempDir()) // a store with nothing in it
+	if m = key(m, "z"); m.span != spanMem || m.tier != nil {
+		t.Errorf("z with an empty store: span=%d tier=%d points, want to stay on 400", m.span, len(m.tier))
+	}
+}

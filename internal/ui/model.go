@@ -67,6 +67,7 @@ type Model struct {
 	span     int              // z: spanMem, spanHour or spanDay (tier.go)
 	tier     []tierPoint      // the stored tier being scrubbed
 	tcur     int              // the cursor in tier
+	tierStep time.Duration    // the tier's usual time between points (a gap is well beyond it)
 	recorded bool             // the screen shows stored data: use recorded process names
 	now      func() time.Time // time.Now; tests pin it
 	replay   *replayInfo      // set by Replay for -play; nil when live
@@ -233,10 +234,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.paused {
 				m.paused, m.cursor = true, m.seq-1
 			}
-			if m.span = (m.span + 1) % nSpans; m.span == spanMem {
+			// next span with stored data: an empty tier would leave the step keys doing nothing
+			for m.span = (m.span + 1) % nSpans; m.span != spanMem; m.span = (m.span + 1) % nSpans {
+				if m.loadTier(); len(m.tier) > 0 {
+					break
+				}
+			}
+			if m.span == spanMem {
 				m.tier = nil
-			} else {
-				m.loadTier()
 			}
 		case "r":
 			if m.cloudy != nil {
