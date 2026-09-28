@@ -26,7 +26,7 @@ Where tidemark stands, as of 2026-09-28. Everything is on `main`; the `3d` branc
 - `monitor-3d/prod/`: the history/diagnosis spec, mockups and gallery.
 
 ## Open
-- `-play` of another Mac's recording shows this Mac's chip and core split. The fix is decided for v1 and is with build-2d (SPEC §1).
+- `-play` process names come from this Mac's PID lookup. The fix is decided for v1 and is with build-2d (SPEC §1).
 - A corrupt line in the middle of a `-play` file ends playback there (minor, known).
 - The tidalrat `--terrain` header cuts its left side mid-token at 110 columns, and its key hints are duplicated in the footer (design finding, sent to build-3d).
 - The real non-`Nominal` thermal state names are unverified: record mactop under sustained load.

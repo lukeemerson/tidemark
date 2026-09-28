@@ -9,6 +9,7 @@ Terminal features for tidemark (Go). The 3D versions are in `TODO-future.md`.
 - `tidemark -play <file>`: feed `<file>` to `Decode` instead of starting mactop. Samples arrive at the recorded spacing.
 - The same format settles tidalrat's `--record` / `--replay` (PLAN row 6), since `source.rs` parses the same stream.
 - On `-play`, the chip name, E/P core counts and memory total come from the recording (`system_info`, `memory.total`), not this Mac.
+- On `-play`, process names are the recorded ones. There is no local PID lookup, since the PIDs belong to the recording Mac.
 - **v1 gap**: `Sys` (load, memory pressure, FreePct) comes from sysctl, not mactop, so it isn't in the recording. On replay those fields draw as `–`. Cloudflare panels show the runs saved on disk, as they do now.
 
 ## 2. Scrub
