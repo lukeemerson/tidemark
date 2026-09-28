@@ -79,4 +79,15 @@ pub fn draw_chart(buf: &mut Buffer, area: Rect, chart: &scene::Chart, labels: &[
             }
         }
     }
+    // marks (alert ▲) always show, over everything
+    for &(r, c, g, role) in &chart.marks {
+        if r >= 0
+            && c >= 0
+            && r < area.height as i64
+            && c < area.width as i64
+            && let Some(cell) = buf.cell_mut((area.x + c as u16, area.y + r as u16))
+        {
+            cell.set_char(g).set_style(fg(role));
+        }
+    }
 }

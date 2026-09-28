@@ -19,6 +19,12 @@ pub struct Sample {
     pub recorded: String,
     /// seconds since 1970 (UTC) from the timestamp, if it parsed
     pub t: Option<f64>,
+    /// mactop's `thermal_state` ("Nominal" normally; empty if the source has none)
+    pub thermal: String,
+    /// bytes of swap in use
+    pub swap_used: f64,
+    /// mactop's first process, as (pid, per-core CPU %): the alert rules' "top process"
+    pub top: Option<(i64, f64)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -67,6 +73,13 @@ struct RecSample {
     t: String,
     cpu: f64,
     cores: Vec<f64>,
+    #[serde(default)]
+    procs: Vec<RecProc>,
+}
+#[derive(Deserialize)]
+struct RecProc {
+    pid: i64,
+    cpu: f64,
 }
 
 fn clock(ts: &str) -> String {
@@ -116,6 +129,9 @@ fn sample(cpu: f64, cores: Vec<f64>, ts: &str) -> Sample {
         clock: clock(ts),
         recorded: recorded(ts),
         t: epoch(ts),
+        thermal: String::new(),
+        swap_used: 0.0,
+        top: None,
     }
 }
 
@@ -130,7 +146,10 @@ pub fn recording() -> (Meta, Vec<Sample>) {
     let s = r
         .samples
         .into_iter()
-        .map(|s| sample(s.cpu, s.cores, &s.t))
+        .map(|s| Sample {
+            top: s.procs.first().map(|p| (p.pid, p.cpu)),
+            ..sample(s.cpu, s.cores, &s.t)
+        })
         .collect();
     (meta, s)
 }
@@ -155,11 +174,20 @@ pub fn parse_line(line: &str) -> Option<(Sample, Meta)> {
         .iter()
         .filter_map(Value::as_f64)
         .collect();
-    let s = sample(
-        v["cpu_usage"].as_f64()?,
-        cores,
-        v["timestamp"].as_str().unwrap_or(""),
-    );
+    let top = v["processes"]
+        .as_array()
+        .and_then(|p| p.first())
+        .and_then(|p| Some((p["pid"].as_i64()?, p["cpu_percent"].as_f64()?)));
+    let s = Sample {
+        thermal: v["thermal_state"].as_str().unwrap_or("").to_string(),
+        swap_used: v["memory"]["swap_used"].as_f64().unwrap_or(0.0),
+        top,
+        ..sample(
+            v["cpu_usage"].as_f64()?,
+            cores,
+            v["timestamp"].as_str().unwrap_or(""),
+        )
+    };
     Some((s, meta))
 }
 

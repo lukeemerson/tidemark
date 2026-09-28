@@ -1,5 +1,6 @@
 //! tidalrat: 3D views of the tidemark monitor data: `--cores` and `--terrain`.
 
+mod alerts;
 mod cores;
 mod ratty;
 mod scene;

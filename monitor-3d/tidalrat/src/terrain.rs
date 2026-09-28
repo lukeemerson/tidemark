@@ -2,6 +2,7 @@
 //! over the last 400 samples (prototype C in the terminal).
 
 use crate::Opts;
+use crate::alerts::Rules;
 use crate::scene::{self, Terrain};
 use crate::source::{self, Meta, Sample, Source};
 use crate::theme::{Role, bold, fg, level};
@@ -37,6 +38,11 @@ struct App {
     /// since recorded timestamps jump when the recording loops or replaces live data
     arrived: VecDeque<f64>,
     clock: Instant,
+    /// whether each sample in `hist` is where a diagnosis rule started firing (an alert)
+    fired: VecDeque<bool>,
+    rules: Rules,
+    /// live mactop: memory pressure is read for the swap rule (replay has none)
+    live: bool,
     /// samples back from the newest; 0 = live edge
     offset: usize,
     paused: bool,
@@ -53,12 +59,16 @@ pub fn run(opts: &Opts) -> io::Result<()> {
     } else {
         source::static_meta()
     };
+    let live = !source.is_replay();
     let mut app = App {
         source,
         meta,
         hist: VecDeque::new(),
         arrived: VecDeque::new(),
         clock: Instant::now(),
+        fired: VecDeque::new(),
+        rules: Rules::default(),
+        live,
         offset: 0,
         paused: false,
         yaw: 0.6,
@@ -92,6 +102,9 @@ impl App {
                 self.meta = Some(source::recording().0);
                 self.hist.clear();
                 self.arrived.clear();
+                self.fired.clear();
+                self.rules = Rules::default();
+                self.live = false;
                 self.offset = 0;
             }
             if self.spin {
@@ -145,6 +158,8 @@ impl App {
     }
 
     fn push_at(&mut self, s: Sample, at: f64) {
+        let pressure = if self.live { pressure_level() } else { None };
+        self.fired.push_back(self.rules.step(&s, pressure));
         self.hist.push_back(s);
         self.arrived.push_back(at);
         if self.paused {
@@ -153,6 +168,7 @@ impl App {
         if self.hist.len() > HISTORY {
             self.hist.pop_front();
             self.arrived.pop_front();
+            self.fired.pop_front();
         }
         self.offset = self.offset.min(self.hist.len().saturating_sub(1));
     }
@@ -210,7 +226,7 @@ impl App {
             ..inner
         };
 
-        let (rows, back_label) = match cursor {
+        let (rows, back_label, alerts) = match cursor {
             Some((i, _)) => {
                 let start = (i + 1).saturating_sub(WINDOW);
                 let rows: Vec<Vec<f64>> = (start..=i).map(|j| self.hist[j].cores.clone()).collect();
@@ -219,9 +235,14 @@ impl App {
                 } else {
                     String::new()
                 };
-                (rows, label)
+                // alerts inside the window; the one on the cursor's row takes the cursor colour
+                let alerts: Vec<(usize, bool)> = (start..=i)
+                    .filter(|&j| self.fired[j])
+                    .map(|j| (j - start, j == i))
+                    .collect();
+                (rows, label, alerts)
             }
-            None => (vec![], String::new()),
+            None => (vec![], String::new(), vec![]),
         };
         let names: Vec<String> = match &self.meta {
             Some(m) => scene::core_layout(m.e, m.p)
@@ -238,6 +259,7 @@ impl App {
             rows: &rows,
             window: WINDOW,
             back_label,
+            alerts: &alerts,
         };
         let cam = terrain.camera(self.yaw, self.pitch);
         let chart = terrain.render(chart_area.width as usize, chart_area.height as usize, &cam);
@@ -246,19 +268,34 @@ impl App {
         self.legend(f.buffer_mut(), Rect::new(x0, h - 1, w, 1));
     }
 
-    fn track(&self, filled_of: (usize, usize), cells: usize) -> Vec<Span<'static>> {
+    /// `◀ ▮▮▮▯▯ ▶`, filled to `a` of `n`. With `ticks`, the track spans the history and a cell
+    /// holding an alert shows `▲`: level-high, or level-mid in the cursor's cell.
+    fn track(&self, filled_of: (usize, usize), cells: usize, ticks: bool) -> Vec<Span<'static>> {
         let (a, n) = filled_of;
         let f = if n == 0 {
             0
         } else {
             (cells * a).div_ceil(n).min(cells)
         };
-        vec![
-            Span::styled("◀ ", fg(Role::Dim)),
-            Span::styled("▮".repeat(f), fg(Role::Mid)),
-            Span::styled("▯".repeat(cells - f), fg(Role::Dim)),
-            Span::styled(" ▶", fg(Role::Dim)),
-        ]
+        let mut v = vec![Span::styled("◀ ", fg(Role::Dim))];
+        for k in 0..cells {
+            // history samples [lo, hi) fall in cell k
+            let (lo, hi) = (k * n / cells, ((k + 1) * n / cells).max(k * n / cells + 1));
+            let alert = ticks && (lo..hi.min(n)).any(|j| self.fired.get(j) == Some(&true));
+            let cursor_cell = k + 1 == f;
+            v.push(match (alert, k < f) {
+                (true, _) if cursor_cell => Span::styled("▲", fg(Role::Mid)),
+                (true, _) => Span::styled("▲", fg(Role::High)),
+                (false, true) => Span::styled("▮", fg(Role::Mid)),
+                (false, false) => Span::styled("▯", fg(Role::Dim)),
+            });
+        }
+        v.push(Span::styled(" ▶", fg(Role::Dim)));
+        v
+    }
+
+    fn alert_count(&self) -> usize {
+        self.fired.iter().filter(|&&f| f).count()
     }
 
     /// Right side of the header, richest first; the caller picks the first that fits.
@@ -275,7 +312,7 @@ impl App {
             return [TRACK, TRACK_NARROW]
                 .map(|cells| {
                     let mut v = vec![Span::styled("‖ paused   ", fg(Role::Mid))];
-                    v.extend(self.track((i + 1, self.hist.len()), cells));
+                    v.extend(self.track((i + 1, self.hist.len()), cells, true));
                     v.push(Span::styled(format!("  t−{}s", self.age(i)), fg(Role::Dim)));
                     v
                 })
@@ -298,7 +335,7 @@ impl App {
                 for cells in [TRACK, TRACK_NARROW] {
                     let mut v = replay.clone();
                     v.push(Span::raw("   "));
-                    v.extend(self.track(p, cells));
+                    v.extend(self.track(p, cells, false));
                     options.push(v);
                 }
             }
@@ -325,25 +362,38 @@ impl App {
                 fg(Role::Dim),
             ));
         }
-        let options = self.status();
-        // at least 3 spaces between the left side and the status, and room for the chip name
+        // the alert count goes first, then the core facts, then the chip name; the left side
+        // is never cut mid-token, and at least 3 spaces separate it from the status
         const GAP: usize = 3;
-        let name_w = left.first().map_or(0, |n| n.width());
-        let fits = |l: &Line| l.width() + GAP + name_w <= area.width as usize;
-        let right = options
-            .iter()
-            .map(|o| Line::from(o.clone()))
-            .find(fits)
-            .unwrap_or_else(|| Line::from(options.last().cloned().unwrap_or_default()));
-        // the left side gets what the right leaves; never cut mid-token: if the core counts
-        // don't fit whole show just the chip name, and if that doesn't fit, nothing
+        let n = self.alert_count();
+        let with_count: Vec<Vec<Span>> = self
+            .status()
+            .into_iter()
+            .filter(|_| n > 0)
+            .map(|mut o| {
+                let word = if n == 1 { "alert" } else { "alerts" };
+                o.push(Span::styled(format!("  ·  {n} {word}"), fg(Role::Dim)));
+                o
+            })
+            .collect();
+        let without = self.status();
+        let name: Vec<Span> = left.first().cloned().into_iter().collect();
+        let tries = [(&left, &with_count), (&left, &without), (&name, &without)];
+        let pick = tries.iter().find_map(|(l, rights)| {
+            let lw = Line::from((*l).clone()).width();
+            rights
+                .iter()
+                .map(|r| Line::from(r.clone()))
+                .find(|r| lw + GAP + r.width() <= area.width as usize)
+                .map(|r| ((*l).clone(), r))
+        });
+        let (left, right) = pick.unwrap_or_else(|| {
+            (
+                vec![],
+                Line::from(without.last().cloned().unwrap_or_default()),
+            )
+        });
         let room = (area.width as usize).saturating_sub(right.width() + GAP);
-        if Line::from(left.clone()).width() > room {
-            left.truncate(1);
-        }
-        if Line::from(left.clone()).width() > room {
-            left.clear();
-        }
         let room = room as u16;
         Line::from(left).render(
             Rect {
@@ -374,6 +424,23 @@ impl App {
     }
 }
 
+/// `kern.memorystatus_vm_pressure_level` (1 normal, 2 warn, 4 critical), for the swap rule.
+fn pressure_level() -> Option<i64> {
+    let mut v: libc::c_int = 0;
+    let mut len = std::mem::size_of::<libc::c_int>();
+    let name = c"kern.memorystatus_vm_pressure_level";
+    let r = unsafe {
+        libc::sysctlbyname(
+            name.as_ptr(),
+            (&mut v as *mut libc::c_int).cast(),
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    (r == 0).then_some(v as i64)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,6 +452,9 @@ mod tests {
             hist: VecDeque::new(),
             arrived: VecDeque::new(),
             clock: Instant::now(),
+            fired: VecDeque::new(),
+            rules: Rules::default(),
+            live: false,
             offset: 0,
             paused: false,
             yaw: 0.0,
@@ -447,5 +517,34 @@ mod tests {
         a.push(next);
         assert_eq!(a.cursor().unwrap().1.cpu, held);
         assert_eq!(a.hist.len(), 102);
+    }
+
+    #[test]
+    fn recording_raises_two_alerts_and_the_track_ticks_them() {
+        let mut a = app(90);
+        assert_eq!(a.alert_count(), 2); // runaway at samples 10 and 56
+        assert!(a.fired[10] && a.fired[56]);
+        // 90 samples over 30 cells: sample 56 is in cell 18, sample 10 in cell 3
+        let glyphs = |a: &App| -> Vec<(String, Role)> {
+            a.track((a.cursor().unwrap().0 + 1, a.hist.len()), 30, true)
+                .into_iter()
+                .map(|s| {
+                    let role = match s.style.fg {
+                        Some(ratatui::style::Color::Red) => Role::High,
+                        Some(ratatui::style::Color::Yellow) => Role::Mid,
+                        _ => Role::Dim,
+                    };
+                    (s.content.to_string(), role)
+                })
+                .collect()
+        };
+        let g = glyphs(&a);
+        assert_eq!(g[1 + 3], ("▲".into(), Role::High));
+        assert_eq!(g[1 + 18], ("▲".into(), Role::High));
+        // cursor on sample 56 (33 back from 89): its cell's tick takes the cursor colour
+        a.scrub(33);
+        let g = glyphs(&a);
+        assert_eq!(g[1 + 18], ("▲".into(), Role::Mid));
+        assert_eq!(g[1 + 3], ("▲".into(), Role::High));
     }
 }

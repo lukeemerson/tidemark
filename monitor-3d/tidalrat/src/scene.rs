@@ -290,6 +290,8 @@ pub struct Chart {
     pub labels: Vec<(i64, i64)>,
     /// scale ticks: (row, col of the anchor, text); the caller places the text beside it
     pub ticks: Vec<(i64, i64, String)>,
+    /// single glyphs drawn on top of everything: (row, col, glyph, colour)
+    pub marks: Vec<(i64, i64, char, Role)>,
 }
 
 /// `columns = false` draws only the floor, labels and scale (Ratty draws the columns in 3D).
@@ -411,6 +413,7 @@ pub fn render(
         cells: cv.cells(&colours),
         labels,
         ticks,
+        marks: vec![],
     }
 }
 
@@ -427,9 +430,14 @@ pub struct Terrain<'a> {
     pub window: usize,
     /// age of the oldest row, e.g. "t−90s", drawn beside it at the floor's left edge
     pub back_label: String,
+    /// rows (indices into `rows`) where an alert rule started firing, and whether that row is
+    /// the cursor's (the front row)
+    pub alerts: &'a [(usize, bool)],
 }
 
 const TERRAIN_MIN_DEPTH: f64 = 6.0;
+/// alert markers sit this many lane widths outside the floor's left edge, clear of the lanes
+const ALERT_GAP: f64 = 2.5;
 
 impl Terrain<'_> {
     fn half_x(&self) -> f64 {
@@ -454,7 +462,8 @@ impl Terrain<'_> {
     }
     fn extent(&self) -> Vec<(f64, f64, f64)> {
         let (hx, hz) = (self.half_x(), self.half_z());
-        let mut pts = vec![];
+        // the alert marker line beside the floor, so markers never leave the frame
+        let mut pts = vec![(-hx - ALERT_GAP, 0.0, -hz), (-hx - ALERT_GAP, 0.0, hz)];
         for x in [-hx, hx] {
             for z in [-hz, hz + 0.6] {
                 for y in [0.0, HMAX] {
@@ -535,10 +544,27 @@ impl Terrain<'_> {
             (b.0 / 2.0).round() as i64,
             self.back_label.clone(),
         )];
+        // ▲ on the floor plane beside the terrain, level with the row where a rule fired
+        let marks = self
+            .alerts
+            .iter()
+            .filter(|&&(r, _)| r < self.rows.len())
+            .map(|&(r, on_cursor)| {
+                let (px, py) = proj(-hx - ALERT_GAP, 0.0, self.slot_z(off + r));
+                let role = if on_cursor { Role::Mid } else { Role::High };
+                (
+                    (py / 4.0).floor() as i64,
+                    (px / 2.0).floor() as i64,
+                    '▲',
+                    role,
+                )
+            })
+            .collect();
         Chart {
             cells: cv.cells(&colours),
             labels,
             ticks,
+            marks,
         }
     }
 }
@@ -639,6 +665,7 @@ mod tests {
             rows: &rows,
             window: 90,
             back_label: "t−90s".into(),
+            alerts: &[],
         };
         let (dw, dh) = (160, 96);
         let (k, ox, oy) = fit_extent(0.45, t.distance(), dw, dh, |_| t.extent());
@@ -671,9 +698,50 @@ mod tests {
             rows: &rows,
             window: 90,
             back_label: String::new(),
+            alerts: &[],
         };
         assert!(t.slot_z(89) > t.slot_z(0));
         let chart = t.render(80, 24, &t.camera(0.6, 0.45));
         assert!(chart.cells.iter().flatten().any(|c| c.1 == Some(Role::Mid)));
+    }
+
+    #[test]
+    fn alert_markers_sit_beside_the_floor_and_follow_the_cursor() {
+        let rows = vec![vec![30.0; 10]; 90];
+        let alerts = [(10, false), (89, true)];
+        let t = Terrain {
+            lanes: 10,
+            rows: &rows,
+            window: 90,
+            back_label: String::new(),
+            alerts: &alerts,
+        };
+        let chart = t.render(100, 30, &t.camera(0.0, 0.45));
+        assert_eq!(chart.marks.len(), 2);
+        for &(r, c, g, _) in &chart.marks {
+            assert_eq!(g, '▲');
+            assert!(
+                (0..30).contains(&r) && (0..100).contains(&c),
+                "marker off the chart at ({r},{c})"
+            );
+        }
+        assert_eq!(chart.marks[0].3, Role::High);
+        assert_eq!(chart.marks[1].3, Role::Mid); // the cursor's row
+        // at the default view each marker sits left of everything the terrain draws on its row
+        for &(r, c, _, _) in &chart.marks {
+            let row = &chart.cells[r as usize];
+            if let Some(left) = row.iter().position(|cell| cell.1.is_some()) {
+                assert!(
+                    c < left as i64,
+                    "marker at col {c} overlaps the terrain (row {r} starts at {left})"
+                );
+            }
+        }
+        // an alert row past `rows` is ignored
+        let t2 = Terrain {
+            alerts: &[(200, false)],
+            ..t
+        };
+        assert!(t2.render(100, 30, &t2.camera(0.0, 0.45)).marks.is_empty());
     }
 }
