@@ -52,3 +52,12 @@ func TestAxisGraphStableWidth(t *testing.T) {
 		}
 	}
 }
+
+// Upload draws in the terminal's text colour under ansi, so no light theme can wash it out.
+func TestAnsiUploadUsesForeground(t *testing.T) {
+	defer setPalette("ansi", true)
+	setPalette("ansi", false)
+	if got := cUp.GetForeground(); got != (lipgloss.NoColor{}) {
+		t.Errorf("ansi upload colour = %v, want the terminal default", got)
+	}
+}

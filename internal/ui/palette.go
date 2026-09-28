@@ -37,7 +37,8 @@ func setPalette(name string, dark bool) {
 		// slots chosen so neighbouring tiles differ even where bright slots equal normal ones
 		dim, low, mid, high = ansiFg(8), ansiFg(2), ansiFg(3), ansiFg(1)
 		cCPU, cGPU, cPower, cMem = ansiFg(6), ansiFg(4), ansiFg(5), ansiFg(14)
-		cTemp, cDown, cUp, cPing = ansiFg(13), ansiFg(12), ansiFg(7), ansiFg(8)
+		// upload/write use the terminal's own text colour: slot 7 is pale grey in some light themes
+		cTemp, cDown, cUp, cPing = ansiFg(13), ansiFg(12), lipgloss.NewStyle(), ansiFg(8)
 		return
 	}
 	p := tidemarkPalette

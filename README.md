@@ -113,7 +113,7 @@ are in [`design-system/`](design-system/).
 
 **Colour roles:** each series keeps one ANSI slot everywhere it appears (cpu cyan, gpu blue,
 power magenta, memory bright cyan, temperature bright magenta, in/download bright blue,
-out/upload the foreground grey). Green, amber and red only mean state: meters, memory pressure,
+out/upload the terminal's text colour). Green, amber and red only mean state: meters, memory pressure,
 errors. Numbers stay in the text colour.
 
 **Built-in palette** (`c`): a fixed truecolor set with separate steps for dark and light
