@@ -13,7 +13,7 @@ Compare what's on screen now (A) against a marked moment (B) as an overlay on th
 
 - **Graphs:** B's window draws as a dim ghost behind A, in `dim`. A keeps its series colour on top, and A wins where both have a dot. Both windows are end-aligned: A's last column is A's sample, and B's last column is B's sample.
 - **Tile and box values:** A's value, then its difference from B: `37%  ▲+12` or `24.9 W  ▼−3.1`. The difference is in `dim` with ▲/▼. It is never in a state colour, since colour roles keep green, amber and red for state. When the two match after rounding it reads `±0`.
-- **Header:** after the time, `·  vs B t−1d02h` (how far back B is from A). The compact form is `vs −1d02h`.
+- **Header:** after the time, `·  vs B t−3h12m` (how far back B is from A). The compact form is `vs −3h12m`.
 - **Track:** B's position shows as a dim `B` in the cell holding it.
 - Unchanged: process lists, the diagnosis line, bars and meters all show A only.
 
