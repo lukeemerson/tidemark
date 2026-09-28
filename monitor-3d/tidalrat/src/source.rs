@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc::{self, Receiver};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -28,6 +28,7 @@ pub enum Source {
     Live {
         rx: Receiver<(Sample, Meta)>,
         child: Child,
+        ended: bool,
     },
     Replay {
         samples: Vec<Sample>,
@@ -146,7 +147,11 @@ impl Source {
                 }
             }
         });
-        Some(Source::Live { rx, child })
+        Some(Source::Live {
+            rx,
+            child,
+            ended: false,
+        })
     }
 
     pub fn replay() -> Source {
@@ -161,10 +166,28 @@ impl Source {
         matches!(self, Source::Replay { .. })
     }
 
+    /// True once live mactop has exited or closed its output.
+    pub fn ended(&self) -> bool {
+        matches!(self, Source::Live { ended: true, .. })
+    }
+
     /// The newest sample since the last call, if any. Live meta comes with each sample.
     pub fn poll(&mut self) -> Option<(Sample, Option<Meta>)> {
         match self {
-            Source::Live { rx, .. } => rx.try_iter().last().map(|(s, m)| (s, Some(m))),
+            Source::Live { rx, ended, .. } => {
+                let mut last = None;
+                loop {
+                    match rx.try_recv() {
+                        Ok(s) => last = Some(s),
+                        Err(TryRecvError::Empty) => break,
+                        Err(TryRecvError::Disconnected) => {
+                            *ended = true;
+                            break;
+                        }
+                    }
+                }
+                last.map(|(s, m)| (s, Some(m)))
+            }
             Source::Replay { samples, i, next } => {
                 if Instant::now() < *next {
                     return None;
@@ -202,8 +225,8 @@ mod tests {
 
     #[test]
     fn parses_recorded_mactop_stream() {
-        // tidemark's own test fixture: the raw `mactop --headless` stream
-        let raw = include_str!("../../../internal/source/testdata/mactop.raw");
+        // copy of tidemark's fixture (internal/source/testdata): the raw `mactop --headless` stream
+        let raw = include_str!("../testdata/mactop.raw");
         let parsed: Vec<_> = raw.lines().filter_map(parse_line).collect();
         assert_eq!(parsed.len(), 90);
         let (s, m) = &parsed[0];

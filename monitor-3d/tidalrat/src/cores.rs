@@ -36,6 +36,8 @@ struct App {
     paused: bool,
     ratty_found: bool,
     columns: Columns,
+    /// live mactop exited; we fell back to the recording
+    mactop_stopped: bool,
 }
 
 pub fn run(opts: Opts) -> io::Result<()> {
@@ -49,11 +51,12 @@ pub fn run(opts: Opts) -> io::Result<()> {
     } else {
         crate::source::static_meta()
     };
-    let mut terminal = ratatui::init();
+    let mut terminal = ratatui::try_init()?;
     let ratty_found = ratty::detect();
     // wipe any echo of the probe in terminals that don't swallow APC (terminal.clear() would
-    // query the cursor position, which not every terminal answers)
-    io::Write::write_all(&mut io::stdout(), b"\x1b[2J")?;
+    // query the cursor position, which not every terminal answers); a failure here must not
+    // skip the restore below
+    let _ = io::Write::write_all(&mut io::stdout(), b"\x1b[2J");
     let n = meta.as_ref().map_or(10, |m| m.e + m.p);
     let mut app = App {
         source,
@@ -66,6 +69,7 @@ pub fn run(opts: Opts) -> io::Result<()> {
         paused: false,
         ratty_found,
         columns: Columns::new(n),
+        mactop_stopped: false,
     };
     let result = app
         .columns
@@ -95,6 +99,20 @@ impl App {
                 }
                 if !self.paused {
                     self.sample = Some(s);
+                }
+            }
+            if self.source.ended() {
+                // mactop exited: say so, and keep the screen alive on the recording
+                self.source = Source::replay();
+                self.mactop_stopped = true;
+                let m = crate::source::recording().0;
+                if self.meta.as_ref() != Some(&m) {
+                    self.loads.resize(m.e + m.p, 0.0);
+                    let on = self.columns.on;
+                    self.columns.set(false)?;
+                    self.columns = Columns::new(m.e + m.p);
+                    self.columns.set(on)?;
+                    self.meta = Some(m);
                 }
             }
             // heights ease toward the newest sample (~0.25 s time constant)
@@ -141,8 +159,10 @@ impl App {
     }
 
     fn draw(&mut self, f: &mut Frame) {
-        let area = f.area();
-        if area.width < MIN_W || area.height < MIN_H {
+        let full = f.area();
+        if full.width < MIN_W || full.height < MIN_H {
+            self.columns.hide_all();
+            let area = full;
             let msg = format!("resize to at least {MIN_W}×{MIN_H}");
             Paragraph::new(Span::styled(msg, fg(Role::Dim)))
                 .centered()
@@ -156,8 +176,9 @@ impl App {
                 );
             return;
         }
-        let (w, h) = (area.width, area.height);
-        self.header(f.buffer_mut(), Rect::new(0, 0, w, 1));
+        // one blank column each side (design-system cell-xpad)
+        let (x0, w, h) = (1, full.width - 2, full.height);
+        self.header(f.buffer_mut(), Rect::new(x0, 0, w, 1));
 
         let right = match &self.sample {
             Some(s) => Span::styled(format!(" {:.0}% ", s.cpu), bold(level(s.cpu))),
@@ -171,7 +192,7 @@ impl App {
                 Span::styled(" cores · 3d ", bold(Role::Text)),
             ]))
             .title(Line::from(vec![right, Span::styled("━", fg(Role::Dim))]).right_aligned());
-        let frame_area = Rect::new(0, 1, w, h - 2);
+        let frame_area = Rect::new(x0, 1, w, h - 2);
         let inner = block.inner(frame_area);
         block.render(frame_area, f.buffer_mut());
         let chart_area = Rect {
@@ -184,7 +205,7 @@ impl App {
             Some(m) => scene::core_layout(m.e, m.p),
             None => scene::core_layout(0, self.loads.len()),
         };
-        let cam = Camera::new(self.yaw, self.pitch);
+        let cam = Camera::new(self.yaw, self.pitch, &cores);
         let chart = scene::render(
             chart_area.width as usize,
             chart_area.height as usize,
@@ -207,9 +228,9 @@ impl App {
             .collect();
         let loads = self.loads.clone();
         self.columns
-            .render(f, &anchors, &loads, chart_area.height / 2);
+            .render(f, chart_area, &anchors, &loads, chart_area.height / 2);
 
-        self.legend(f.buffer_mut(), Rect::new(0, h - 1, w, 1));
+        self.legend(f.buffer_mut(), Rect::new(x0, h - 1, w, 1));
     }
 
     fn header(&self, buf: &mut Buffer, area: Rect) {
@@ -225,6 +246,10 @@ impl App {
         let right = match &self.sample {
             None => Line::from(Span::styled("● starting mactop…", fg(Role::Mid))),
             Some(s) => {
+                let mut spans = vec![];
+                if self.mactop_stopped {
+                    spans.push(Span::styled("mactop stopped  ", fg(Role::Mid)));
+                }
                 let mut t = String::new();
                 if self.paused {
                     t.push_str("paused  ");
@@ -233,10 +258,19 @@ impl App {
                     t.push_str("replay  ");
                 }
                 t.push_str(&s.clock);
-                Line::from(Span::styled(t, fg(Role::Dim)))
+                spans.push(Span::styled(t, fg(Role::Dim)));
+                Line::from(spans)
             }
         };
-        Line::from(left).render(area, buf);
+        // the left side gets what the right leaves, minus a one-cell gap, so they never touch
+        let room = area.width.saturating_sub(right.width() as u16 + 1);
+        Line::from(left).render(
+            Rect {
+                width: room,
+                ..area
+            },
+            buf,
+        );
         right.right_aligned().render(area, buf);
     }
 
@@ -277,23 +311,36 @@ fn draw_chart(buf: &mut Buffer, area: Rect, chart: &scene::Chart, cores: &[scene
             }
         }
     }
-    let text = |buf: &mut Buffer, r: i64, c: i64, s: &str| {
-        for (j, ch) in s.chars().enumerate() {
-            let (y, x) = (r, c + j as i64);
-            if y < 0 || x < 0 || y >= area.height as i64 || x >= area.width as i64 {
-                continue;
-            }
-            if matches!(
+    let free = |y: i64, x: i64| {
+        y >= 0
+            && x >= 0
+            && y < area.height as i64
+            && x < area.width as i64
+            && matches!(
                 chart.cells[y as usize][x as usize].1,
                 None | Some(Role::Dim)
-            ) && let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + y as u16))
+            )
+    };
+    let text = |buf: &mut Buffer, r: i64, c: i64, s: &str| {
+        for (j, ch) in s.chars().enumerate() {
+            let x = c + j as i64;
+            if free(r, x)
+                && let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + r as u16))
             {
                 cell.set_char(ch).set_style(fg(Role::Dim));
             }
         }
     };
-    for &(r, c, t) in &chart.ticks {
-        text(buf, r, c, t);
+    // a tick label goes left of the post, else right of it, and only where all of it fits,
+    // so "100%" never shows as "0%"
+    for &(r, post, t) in &chart.ticks {
+        let n = t.chars().count() as i64;
+        if let Some(c) = [post - n - 1, post + 2]
+            .into_iter()
+            .find(|&c| (c..c + n).all(|x| free(r, x)))
+        {
+            text(buf, r, c, t);
+        }
     }
     for (&(r, c), core) in chart.labels.iter().zip(cores) {
         text(buf, r, c, &core.label);

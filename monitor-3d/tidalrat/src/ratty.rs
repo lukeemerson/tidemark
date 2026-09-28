@@ -44,6 +44,7 @@ pub fn detect() -> bool {
 
 pub struct Columns {
     graphics: Vec<RattyGraphic<'static>>,
+    placed: Vec<bool>,
     pub on: bool,
 }
 
@@ -59,6 +60,7 @@ impl Columns {
             })
             .collect();
         Columns {
+            placed: vec![false; n],
             graphics,
             on: false,
         }
@@ -74,22 +76,51 @@ impl Columns {
                 }
             }
             self.on = on;
+            self.placed.fill(false);
         }
         Ok(())
     }
 
-    /// Place one column per core on its label cell, `rows` tall at 100%.
-    pub fn render(&mut self, frame: &mut Frame, anchors: &[(u16, u16)], loads: &[f64], rows: u16) {
+    /// Delete every placed cube but stay registered (window too small, say).
+    pub fn hide_all(&mut self) {
+        for i in 0..self.graphics.len() {
+            self.hide(i);
+        }
+    }
+
+    fn hide(&mut self, i: usize) {
+        if self.placed[i] {
+            let _ = self.graphics[i].clear();
+            self.placed[i] = false;
+        }
+    }
+
+    /// Place one column per core on its label cell, `rows` tall at 100%, never above `chart`'s
+    /// top row; a column whose label is off the chart is deleted instead.
+    pub fn render(
+        &mut self,
+        frame: &mut Frame,
+        chart: Rect,
+        anchors: &[(u16, u16)],
+        loads: &[f64],
+        rows: u16,
+    ) {
         if !self.on {
             return;
         }
-        let area = frame.area();
-        for (g, (&(row, col), &load)) in self.graphics.iter_mut().zip(anchors.iter().zip(loads)) {
-            if row == 0 {
+        for i in 0..self.graphics.len() {
+            let (Some(&(row, col)), Some(&load)) = (anchors.get(i), loads.get(i)) else {
+                self.hide(i);
+                continue;
+            };
+            if row <= chart.y || row >= chart.bottom() || col < chart.x || col + 2 > chart.right() {
+                self.hide(i);
                 continue;
             }
-            let h = ((load / 100.0 * rows as f64).round() as u16).clamp(1, row);
-            let rect = Rect::new(col, row - h, 2, h).intersection(area);
+            let h = ((load / 100.0 * rows as f64).round() as u16).clamp(1, row - chart.y);
+            let rect = Rect::new(col, row - h, 2, h);
+            self.placed[i] = true;
+            let g = &mut self.graphics[i];
             let s = g.settings_mut();
             s.color = Some(hex(level(load)));
             // rounded so the place message is only re-sent when the column visibly changes

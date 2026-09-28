@@ -5,7 +5,7 @@
 use crate::theme::{Role, level};
 
 pub const HMAX: f64 = 3.0; // column height at 100% (world units)
-const D: f64 = 10.0; // camera distance
+const D: f64 = 10.0; // minimum camera distance
 const S: f64 = 0.3; // column half-width
 const BITS: [[u32; 2]; 4] = [[0x01, 0x08], [0x02, 0x10], [0x04, 0x20], [0x40, 0x80]]; // [dy][dx]
 
@@ -13,6 +13,7 @@ const BITS: [[u32; 2]; 4] = [[0x01, 0x08], [0x02, 0x10], [0x04, 0x20], [0x40, 0x
 pub struct Camera {
     pub yaw: f64,
     pub pitch: f64,
+    d: f64,
     cy: f64,
     sy: f64,
     cp: f64,
@@ -21,12 +22,15 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(yaw: f64, pitch: f64) -> Self {
+    /// The distance grows with the layout so wide chips (8E + 24P) stay in front of the camera.
+    pub fn new(yaw: f64, pitch: f64, cores: &[Core]) -> Self {
+        let d = D.max(2.5 * floor_half(cores));
         let (cy, sy, cp, sp) = (yaw.cos(), yaw.sin(), pitch.cos(), pitch.sin());
-        let pos = [D * cp * sy, HMAX * 0.4 + D * sp, D * cp * cy];
+        let pos = [d * cp * sy, HMAX * 0.4 + d * sp, d * cp * cy];
         Camera {
             yaw,
             pitch,
+            d,
             cy,
             sy,
             cp,
@@ -42,7 +46,7 @@ impl Camera {
         let z1 = x * self.sy + z * self.cy;
         let y2 = y * self.cp - z1 * self.sp;
         let z2 = y * self.sp + z1 * self.cp;
-        let d = D - z2;
+        let d = self.d - z2;
         (x1 / d, y2 / d, d)
     }
 }
@@ -82,35 +86,42 @@ fn label_point(cam: &Camera, x: f64, z: f64) -> (f64, f64, f64) {
     (x + 0.62 * cam.yaw.sin(), 0.0, z + 0.62 * cam.yaw.cos())
 }
 
-/// Half-width of the floor grid: one cell past the outermost column.
+/// Half-width of the floor grid: half a slot past the outermost column, so grid lines fall
+/// between columns.
 fn floor_half(cores: &[Core]) -> f64 {
-    cores.iter().map(|c| c.x.abs()).fold(0.0, f64::max).ceil() + 0.5
+    cores.iter().map(|c| c.x.abs()).fold(0.0, f64::max) + 0.5
+}
+
+/// Every world point the chart can draw at this yaw: column corners, the label point, floor
+/// corners and the scale post's top.
+fn extent(cam: &Camera, cores: &[Core]) -> Vec<(f64, f64, f64)> {
+    let h = floor_half(cores);
+    let mut pts = vec![
+        (-h, 0.0, -1.2),
+        (h, 0.0, -1.2),
+        (-h, 0.0, 1.2),
+        (h, 0.0, 1.2),
+        (-h, HMAX, -1.2),
+    ];
+    for c in cores {
+        pts.extend(
+            corners(c.x, c.z)
+                .iter()
+                .flat_map(|&(a, b)| [(a, 0.0, b), (a, HMAX, b)]),
+        );
+        pts.push(label_point(cam, c.x, c.z));
+    }
+    pts
 }
 
 /// Dot-space scale and offset fitted over every yaw, so the chart doesn't breathe while spinning.
 pub fn fit(pitch: f64, cores: &[Core], dw: usize, dh: usize) -> (f64, f64, f64) {
     let (mut x0, mut x1, mut y0, mut y1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
     for k in 0..24 {
-        let cam = Camera::new(k as f64 * std::f64::consts::PI / 12.0, pitch);
-        for c in cores {
-            let mut pts: Vec<(f64, f64, f64)> = corners(c.x, c.z)
-                .iter()
-                .flat_map(|&(a, b)| [(a, 0.0, b), (a, HMAX, b)])
-                .collect();
-            pts.push(label_point(&cam, c.x, c.z));
-            let h = floor_half(cores);
-            // floor corners and the scale post's top, so neither leaves the frame
-            pts.extend([
-                (-h, 0.0, -1.2),
-                (h, 0.0, -1.2),
-                (-h, 0.0, 1.2),
-                (h, 0.0, 1.2),
-                (-h, HMAX, -1.2),
-            ]);
-            for (x, y, z) in pts {
-                let (sx, sy, _) = cam.view(x, y, z);
-                (x0, x1, y0, y1) = (x0.min(sx), x1.max(sx), y0.min(sy), y1.max(sy));
-            }
+        let cam = Camera::new(k as f64 * std::f64::consts::PI / 12.0, pitch, cores);
+        for (x, y, z) in extent(&cam, cores) {
+            let (sx, sy, _) = cam.view(x, y, z);
+            (x0, x1, y0, y1) = (x0.min(sx), x1.max(sx), y0.min(sy), y1.max(sy));
         }
     }
     let k = ((dw as f64 - 4.0) / (x1 - x0)).min((dh as f64 - 6.0) / (y1 - y0));
@@ -262,7 +273,7 @@ pub struct Chart {
     pub cells: Vec<Vec<(char, Option<Role>)>>,
     /// per core: (row, col) cell where its label starts, in chart cells
     pub labels: Vec<(i64, i64)>,
-    /// scale post ticks: (row, col, text)
+    /// scale post ticks: (row, col of the post, text); the caller places the text beside it
     pub ticks: Vec<(i64, i64, &'static str)>,
 }
 
@@ -294,17 +305,20 @@ pub fn render(
     }
 
     // scale post at the back-left corner: 50% and 100% of HMAX, so headroom reads as scale
-    let mut ticks = vec![];
-    cv.line(proj(-half, 0.0, -1.2), proj(-half, HMAX, -1.2), -1);
-    for (f, text) in [(0.5, "50%"), (1.0, "100%")] {
-        let a = proj(-half, HMAX * f, -1.2);
-        cv.line(a, proj(-half + 0.3, HMAX * f, -1.2), -1);
-        ticks.push((
-            (a.1 / 4.0).floor() as i64,
-            (a.0 / 2.0).round() as i64 - text.len() as i64 - 1,
-            text,
-        ));
-    }
+    let ticks = [(0.5, "50%"), (1.0, "100%")]
+        .iter()
+        .map(|&(f, text)| {
+            let a = proj(-half, HMAX * f, -1.2);
+            ((a.1 / 4.0).floor() as i64, (a.0 / 2.0).round() as i64, text)
+        })
+        .collect();
+    let post = |cv: &mut Canvas, owner: i32| {
+        cv.line(proj(-half, 0.0, -1.2), proj(-half, HMAX, -1.2), owner);
+        for f in [0.5, 1.0] {
+            let a = proj(-half, HMAX * f, -1.2);
+            cv.line(a, proj(-half + 0.3, HMAX * f, -1.2), owner);
+        }
+    };
 
     let labels = cores
         .iter()
@@ -316,15 +330,25 @@ pub fn render(
         .collect();
 
     let mut colours = vec![];
-    if columns {
-        let mut order: Vec<usize> = (0..cores.len()).collect();
-        order.sort_by(|&a, &b| {
-            cam.view(cores[b].x, 0.0, cores[b].z)
-                .2
-                .total_cmp(&cam.view(cores[a].x, 0.0, cores[a].z).2)
+    if !columns {
+        post(&mut cv, -1);
+    } else {
+        // columns and the post in one far-to-near order, so nearer columns hide the post and
+        // the post hides columns behind it; `None` is the post
+        let dist = |x: f64, z: f64| cam.view(x, 0.0, z).2;
+        let mut order: Vec<Option<usize>> = (0..cores.len()).map(Some).chain([None]).collect();
+        order.sort_by(|a, b| {
+            let d =
+                |o: &Option<usize>| o.map_or(dist(-half, -1.2), |i| dist(cores[i].x, cores[i].z));
+            d(b).total_cmp(&d(a))
         });
         let (lx, lz) = (-0.55, 0.83); // side light, world x/z
-        for (rank, &i) in order.iter().enumerate() {
+        for (rank, &o) in order.iter().enumerate() {
+            let Some(i) = o else {
+                colours.push(Role::Dim);
+                post(&mut cv, rank as i32);
+                continue;
+            };
             let c = &cores[i];
             let load = loads.get(i).copied().unwrap_or(0.0);
             let h = (load / 100.0 * HMAX).max(0.04);
@@ -384,23 +408,47 @@ mod tests {
     }
 
     #[test]
-    fn fit_keeps_every_yaw_inside_the_canvas() {
-        let cores = core_layout(4, 6);
-        let (dw, dh) = (160, 80);
-        let (k, ox, oy) = fit(0.45, &cores, dw, dh);
-        for step in 0..48 {
-            let cam = Camera::new(step as f64 * 0.13, 0.45);
-            for c in &cores {
-                for y in [0.0, HMAX] {
-                    let (sx, sy, _) = cam.view(c.x, y, c.z);
-                    let (px, py) = (ox + sx * k, oy - sy * k);
-                    assert!(
-                        px >= 0.0 && px <= dw as f64 && py >= 0.0 && py <= dh as f64,
-                        "({px},{py})"
-                    );
+    fn fit_keeps_every_point_inside_and_the_chart_large() {
+        // M2 Pro, a small chip, a wide one (M3 Ultra) and a P-only row
+        for (ne, np) in [(4, 6), (2, 2), (8, 24), (0, 12)] {
+            let cores = core_layout(ne, np);
+            let (dw, dh) = (160, 80);
+            for pitch in [0.1, 0.45, 1.3] {
+                let (k, ox, oy) = fit(pitch, &cores, dw, dh);
+                for step in 0..48 {
+                    let cam = Camera::new(step as f64 * 0.13, pitch, &cores);
+                    for (x, y, z) in extent(&cam, &cores) {
+                        let (sx, sy, d) = cam.view(x, y, z);
+                        assert!(d > 1.0, "{ne}E+{np}P: point behind the camera (d={d})");
+                        let (px, py) = (ox + sx * k, oy - sy * k);
+                        assert!(
+                            px > 0.0 && px < dw as f64 && py > 0.0 && py < dh as f64,
+                            "{ne}E+{np}P pitch {pitch}: ({px},{py}) outside {dw}x{dh}"
+                        );
+                    }
                 }
+                // the column footprint seen head-on spans a real share of the canvas's short side,
+                // not a dot (the wide-chip collapse left it at about 1 dot)
+                let cam = Camera::new(0.0, pitch, &cores);
+                let xs: Vec<f64> = cores
+                    .iter()
+                    .map(|c| ox + cam.view(c.x, 0.0, c.z).0 * k)
+                    .collect();
+                let span = xs.iter().cloned().fold(f64::MIN, f64::max)
+                    - xs.iter().cloned().fold(f64::MAX, f64::min);
+                assert!(
+                    span > dw.min(dh) as f64 * 0.1,
+                    "{ne}E+{np}P pitch {pitch}: columns span only {span} dots"
+                );
             }
         }
+    }
+
+    #[test]
+    fn grid_lines_fall_between_columns() {
+        let cores = core_layout(4, 6);
+        let h = floor_half(&cores);
+        assert_eq!(h, 3.0); // lines at -3..3, columns at -2.5..2.5
     }
 
     #[test]
@@ -415,7 +463,14 @@ mod tests {
     #[test]
     fn full_load_columns_are_drawn_in_their_level() {
         let cores = core_layout(4, 6);
-        let chart = render(80, 24, &Camera::new(0.6, 0.45), &cores, &[90.0; 10], true);
+        let chart = render(
+            80,
+            24,
+            &Camera::new(0.6, 0.45, &cores),
+            &cores,
+            &[90.0; 10],
+            true,
+        );
         let roles: Vec<_> = chart.cells.iter().flatten().filter_map(|c| c.1).collect();
         assert!(roles.contains(&Role::High));
         assert!(!roles.contains(&Role::Low));
