@@ -13,11 +13,11 @@ Goal: a 3D view of the same mactop data, built as its own component beside `bin/
 6. **Verify** each prototype: load it, screenshot it, check the console, run E in a PTY. Record the results in `RESULTS.md`, with a gallery at `index.html`.
 7. **Next, if one wins:** port it into the Go/Bubble Tea plan (E), or run the web view as a companion window fed by the same mactop stream (A, B, C).
 
-Committed on branch `3d`; `main` is untouched.
+Merged into `main` (6f6d6d7); the `3d` branch is retired.
 
-## tidalrat (Rust CLI, branch `3d`)
+## tidalrat (Rust CLI, on `main`)
 
-`main` is production (tidemark, Go). All 3D work lives on `3d` until you merge it. tidalrat is Rust + Ratatui, as a pilot for a Rust rewrite.
+tidalrat lives on `main` beside tidemark (Go). It's Rust + Ratatui, as a pilot for a Rust rewrite.
 
 | # | command | status |
 | --- | --- | --- |

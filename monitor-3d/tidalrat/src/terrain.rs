@@ -25,8 +25,9 @@ const MIN_H: u16 = 20;
 const HISTORY: usize = 400;
 /// samples shown in the landscape, ending at the cursor
 const WINDOW: usize = 90;
-/// cells in the scrub track
+/// cells in the scrub track, and in its narrow form
 const TRACK: usize = 30;
+const TRACK_NARROW: usize = 15;
 
 struct App {
     source: Source,
@@ -245,17 +246,17 @@ impl App {
         self.legend(f.buffer_mut(), Rect::new(x0, h - 1, w, 1));
     }
 
-    fn track(&self, filled_of: (usize, usize)) -> Vec<Span<'static>> {
+    fn track(&self, filled_of: (usize, usize), cells: usize) -> Vec<Span<'static>> {
         let (a, n) = filled_of;
         let f = if n == 0 {
             0
         } else {
-            (TRACK * a).div_ceil(n).min(TRACK)
+            (cells * a).div_ceil(n).min(cells)
         };
         vec![
             Span::styled("◀ ", fg(Role::Dim)),
             Span::styled("▮".repeat(f), fg(Role::Mid)),
-            Span::styled("▯".repeat(TRACK - f), fg(Role::Dim)),
+            Span::styled("▯".repeat(cells - f), fg(Role::Dim)),
             Span::styled(" ▶", fg(Role::Dim)),
         ]
     }
@@ -269,15 +270,16 @@ impl App {
             .mactop_stopped
             .then(|| Span::styled("mactop stopped  ", fg(Role::Mid)));
         if self.paused {
-            let mut base = vec![Span::styled("‖ paused   ", fg(Role::Mid))];
-            base.extend(self.track((i + 1, self.hist.len())));
-            base.push(Span::styled(format!("  t−{}s", self.age(i)), fg(Role::Dim)));
-            let mut full = base.clone();
-            full.push(Span::styled(
-                "   [ ] step  { } ±30  space live",
-                fg(Role::Dim),
-            ));
-            return vec![full, base];
+            // no key hints here: the footer already shows them; a narrow track before giving
+            // up the chip name
+            return [TRACK, TRACK_NARROW]
+                .map(|cells| {
+                    let mut v = vec![Span::styled("‖ paused   ", fg(Role::Mid))];
+                    v.extend(self.track((i + 1, self.hist.len()), cells));
+                    v.push(Span::styled(format!("  t−{}s", self.age(i)), fg(Role::Dim)));
+                    v
+                })
+                .to_vec();
         }
         let mut replay = vec![];
         replay.extend(stopped.clone());
@@ -291,12 +293,24 @@ impl App {
                 format!("{pos} · 1× · recorded {}", s.recorded),
                 fg(Role::Dim),
             ));
-            let mut with_track = replay.clone();
+            let mut options = vec![];
             if let Some(p) = self.source.progress() {
-                with_track.push(Span::raw("   "));
-                with_track.extend(self.track(p));
+                for cells in [TRACK, TRACK_NARROW] {
+                    let mut v = replay.clone();
+                    v.push(Span::raw("   "));
+                    v.extend(self.track(p, cells));
+                    options.push(v);
+                }
             }
-            return vec![with_track, replay];
+            options.push(replay);
+            // shortest: just "▶ replay 3/90", before the chip name has to go
+            let mut short: Vec<_> = stopped.into_iter().collect();
+            short.push(Span::styled("▶ replay", fg(Role::Power)));
+            if let Some((a, n)) = self.source.progress() {
+                short.push(Span::styled(format!(" {a}/{n}"), fg(Role::Dim)));
+            }
+            options.push(short);
+            return options;
         }
         vec![vec![Span::styled(s.clock.clone(), fg(Role::Dim))]]
     }
@@ -312,18 +326,25 @@ impl App {
             ));
         }
         let options = self.status();
-        let fits = |l: &Line| l.width() + 13 <= area.width as usize; // keep room for the name
+        // at least 3 spaces between the left side and the status, and room for the chip name
+        const GAP: usize = 3;
+        let name_w = left.first().map_or(0, |n| n.width());
+        let fits = |l: &Line| l.width() + GAP + name_w <= area.width as usize;
         let right = options
             .iter()
             .map(|o| Line::from(o.clone()))
             .find(fits)
             .unwrap_or_else(|| Line::from(options.last().cloned().unwrap_or_default()));
-        // the left side gets what the right leaves, minus a one-cell gap; if the core counts
-        // don't fit whole, show just the chip name (as design's paused mockup does)
-        let room = area.width.saturating_sub(right.width() as u16 + 1);
-        if Line::from(left.clone()).width() > room as usize {
+        // the left side gets what the right leaves; never cut mid-token: if the core counts
+        // don't fit whole show just the chip name, and if that doesn't fit, nothing
+        let room = (area.width as usize).saturating_sub(right.width() + GAP);
+        if Line::from(left.clone()).width() > room {
             left.truncate(1);
         }
+        if Line::from(left.clone()).width() > room {
+            left.clear();
+        }
+        let room = room as u16;
         Line::from(left).render(
             Rect {
                 width: room,
