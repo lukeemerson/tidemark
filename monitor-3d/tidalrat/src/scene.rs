@@ -12,6 +12,7 @@ const BITS: [[u32; 2]; 4] = [[0x01, 0x08], [0x02, 0x10], [0x04, 0x20], [0x40, 0x
 #[derive(Clone, Copy)]
 pub struct Camera {
     pub yaw: f64,
+    pub pitch: f64,
     d: f64,
     cy: f64,
     sy: f64,
@@ -28,6 +29,7 @@ impl Camera {
         let pos = [d * cp * sy, HMAX * 0.4 + d * sp, d * cp * cy];
         Camera {
             yaw,
+            pitch,
             d,
             cy,
             sy,
@@ -112,24 +114,21 @@ fn extent(cam: &Camera, cores: &[Core]) -> Vec<(f64, f64, f64)> {
     pts
 }
 
-/// Fit to this camera's view: the largest dot-space scale that keeps every drawn point inside a
-/// `dw`×`dh` canvas, and the view-space centre (`mx`, `my`) of those points.
-pub fn fit(cam: &Camera, cores: &[Core], dw: usize, dh: usize) -> (f64, f64, f64) {
-    let (mut x0, mut x1, mut y0, mut y1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
-    for (x, y, z) in extent(cam, cores) {
-        let (sx, sy, _) = cam.view(x, y, z);
-        (x0, x1, y0, y1) = (x0.min(sx), x1.max(sx), y0.min(sy), y1.max(sy));
+/// Dot-space scale and offset for a `dw`×`dh` canvas, the same at every yaw so the chart spins in
+/// place: no change of size while turning, and the rotation axis (world x = z = 0, which projects
+/// to screen x = 0 at any yaw) pinned to the centre column. The scale is the largest that keeps
+/// every drawn point inside at every yaw (sampled every 5°), measured out from that axis.
+pub fn fit(pitch: f64, cores: &[Core], dw: usize, dh: usize) -> (f64, f64, f64) {
+    let (mut ax, mut y0, mut y1) = (0.0f64, f64::MAX, f64::MIN);
+    for step in 0..72 {
+        let cam = Camera::new(step as f64 * std::f64::consts::PI / 36.0, pitch, cores);
+        for (x, y, z) in extent(&cam, cores) {
+            let (sx, sy, _) = cam.view(x, y, z);
+            (ax, y0, y1) = (ax.max(sx.abs()), y0.min(sy), y1.max(sy));
+        }
     }
-    let k = ((dw as f64 - 4.0) / (x1 - x0)).min((dh as f64 - 6.0) / (y1 - y0));
-    (k, (x1 + x0) / 2.0, (y1 + y0) / 2.0)
-}
-
-/// Scale and offset for drawing: at most `zoom` (the caller's smoothed scale) and never more than
-/// fits, and always centred on this frame's view.
-fn place(cam: &Camera, cores: &[Core], dw: usize, dh: usize, zoom: f64) -> (f64, f64, f64) {
-    let (fit_k, mx, my) = fit(cam, cores, dw, dh);
-    let k = zoom.min(fit_k);
-    (k, dw as f64 / 2.0 - k * mx, dh as f64 / 2.0 + k * my)
+    let k = ((dw as f64 / 2.0 - 2.0) / ax).min((dh as f64 - 6.0) / (y1 - y0));
+    (k, dw as f64 / 2.0, dh as f64 / 2.0 + k * (y1 + y0) / 2.0)
 }
 
 type Pattern = fn(i64, i64) -> bool;
@@ -278,7 +277,6 @@ pub struct Chart {
 }
 
 /// `columns = false` draws only the floor, labels and scale (Ratty draws the columns in 3D).
-/// `zoom` caps the scale (pass `f64::INFINITY` to fill the canvas).
 pub fn render(
     cw: usize,
     ch: usize,
@@ -286,10 +284,9 @@ pub fn render(
     cores: &[Core],
     loads: &[f64],
     columns: bool,
-    zoom: f64,
 ) -> Chart {
     let mut cv = Canvas::new(cw, ch);
-    let (k, ox, oy) = place(cam, cores, cv.dw, cv.dh, zoom);
+    let (k, ox, oy) = fit(cam.pitch, cores, cv.dw, cv.dh);
     let proj = |x: f64, y: f64, z: f64| {
         let (sx, sy, _) = cam.view(x, y, z);
         (ox + sx * k, oy - sy * k)
@@ -410,19 +407,20 @@ mod tests {
     }
 
     #[test]
-    fn fit_keeps_every_point_inside_and_the_chart_large() {
+    fn fit_spins_in_place_keeps_every_point_inside_and_the_chart_large() {
         // M2 Pro, a small chip, a wide one (M3 Ultra) and a P-only row
         for (ne, np) in [(4, 6), (2, 2), (8, 24), (0, 12)] {
             let cores = core_layout(ne, np);
             let (dw, dh) = (160, 80);
             for pitch in [0.1, 0.45, 1.3] {
+                let (k, ox, oy) = fit(pitch, &cores, dw, dh);
+                // spins in place: the rotation axis sits on the centre column at every yaw
+                assert_eq!(ox, dw as f64 / 2.0);
+                // yaws off the 5° sampling grid, to catch overshoot between samples
                 for step in 0..48 {
                     let cam = Camera::new(step as f64 * 0.13, pitch, &cores);
-                    let (k, ox, oy) = place(&cam, &cores, dw, dh, f64::INFINITY);
-                    // centred: the view's midpoint lands on the canvas centre
-                    let (_, mx, my) = fit(&cam, &cores, dw, dh);
-                    assert!((ox + mx * k - dw as f64 / 2.0).abs() < 1e-9);
-                    assert!((oy - my * k - dh as f64 / 2.0).abs() < 1e-9);
+                    let (ax, _, _) = cam.view(0.0, HMAX, 0.0);
+                    assert!((ox + ax * k - dw as f64 / 2.0).abs() < 1e-9);
                     for (x, y, z) in extent(&cam, &cores) {
                         let (sx, sy, d) = cam.view(x, y, z);
                         assert!(d > 1.0, "{ne}E+{np}P: point behind the camera (d={d})");
@@ -436,7 +434,6 @@ mod tests {
                 // the column footprint seen head-on spans a real share of the canvas's short side,
                 // not a dot (the wide-chip collapse left it at about 1 dot)
                 let cam = Camera::new(0.0, pitch, &cores);
-                let (k, ox, _) = place(&cam, &cores, dw, dh, f64::INFINITY);
                 let xs: Vec<f64> = cores
                     .iter()
                     .map(|c| ox + cam.view(c.x, 0.0, c.z).0 * k)
@@ -449,15 +446,6 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn zoom_caps_the_scale_but_never_exceeds_the_fit() {
-        let cores = core_layout(4, 6);
-        let cam = Camera::new(0.6, 0.45, &cores);
-        let (fit_k, _, _) = fit(&cam, &cores, 160, 80);
-        assert_eq!(place(&cam, &cores, 160, 80, fit_k / 2.0).0, fit_k / 2.0);
-        assert_eq!(place(&cam, &cores, 160, 80, fit_k * 2.0).0, fit_k);
     }
 
     #[test]
@@ -486,7 +474,6 @@ mod tests {
             &cores,
             &[90.0; 10],
             true,
-            f64::INFINITY,
         );
         let roles: Vec<_> = chart.cells.iter().flatten().filter_map(|c| c.1).collect();
         assert!(roles.contains(&Role::High));
