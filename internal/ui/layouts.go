@@ -56,7 +56,7 @@ func (m Model) sidebarLayout(rows, w int) []string {
 	right := rounded.box("cpu", freq+"  "+m.hCPU(), gw, ch, axisGraph(m.hcpu, gw-4, ch-2, 100, "100%", cCPU)...)
 	right = append(right, rounded.box("gpu", m.hGPU(), gw, gh, m.pGPU(gw-4, gh-3)...)...)
 	right = append(right, rounded.box("power", m.hPow(), gw, pwh, m.pPow(gw-4, pwh-3)...)...)
-	right = append(right, rounded.box("processes", "", gw, ph, m.pProc(gw-4, ph-3)...)...)
+	right = append(right, rounded.box(m.procTitle("processes"), "", gw, ph, m.pProc(gw-4, ph-3)...)...)
 	return append([]string{m.head(w)}, hjoin(left, right)...)
 }
 
@@ -215,7 +215,7 @@ func (m Model) historyBand(pr *int, w int) []string {
 // procBand is the full-width process table under the last two-column band, rows lines tall.
 func (m Model) procBand(rows, w int) []string {
 	lw := (w - 3) * 3 / 5
-	out := []string{dim.Render("╠") + seg("processes", "", lw) + dim.Render("╩"+rep("═", w-3-lw)+"╣")}
+	out := []string{dim.Render("╠") + seg(m.procTitle("processes"), "", lw) + dim.Render("╩"+rep("═", w-3-lw)+"╣")}
 	v := dim.Render("║")
 	for _, l := range m.pProc(w-4, rows-2) {
 		out = append(out, v+" "+pad(l, w-4)+" "+v)

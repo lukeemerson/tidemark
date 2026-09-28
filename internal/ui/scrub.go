@@ -61,6 +61,9 @@ func (m *Model) moveCursor(by int) {
 
 // at is the model as it was at the cursor: that sample, and every history cut off there.
 func (m Model) at() Model {
+	if m.paused && m.span != spanMem && len(m.tier) > 0 {
+		return m.atTier()
+	}
 	if !m.paused || len(m.past) == 0 {
 		return m
 	}
@@ -133,7 +136,12 @@ func (m Model) scrubHead(w int) string {
 		return false
 	}
 
+	drawTrack := func(cells int) string { return track(pos, n, cells, alertIn) }
 	var status, when, hints string
+	if m.span != spanMem && len(m.tier) > 0 { // a stored tier: time-based track, span label
+		drawTrack = m.tierTrack
+		nAlerts = m.tierAlerts()
+	}
 	if m.replay != nil {
 		sym := cPower.Render("▶ replay")
 		if m.paused {
@@ -147,6 +155,9 @@ func (m Model) scrubHead(w int) string {
 			back = seconds(m.past[pos].Timestamp, m.past[len(m.past)-1].Timestamp, back)
 		}
 		when = dim.Render(fmt.Sprintf("t−%ds", back))
+		if m.span != spanMem && len(m.tier) > 0 {
+			when = dim.Render("t−" + ago(m.now().Sub(m.tier[m.tcur].t)) + "  ·  " + spanNames[m.span])
+		}
 		hints = dim.Render("   [ ] step  { } ±30  space live")
 	}
 	if nAlerts > 0 {
@@ -155,7 +166,7 @@ func (m Model) scrubHead(w int) string {
 	ind := dim.Render("   " + m.indicator())
 
 	full := func(cells int, withHints, withInd bool) string {
-		r := status + "   " + dim.Render("◀ ") + track(pos, n, cells, alertIn) + dim.Render(" ▶")
+		r := status + "   " + dim.Render("◀ ") + drawTrack(cells) + dim.Render(" ▶")
 		if when != "" {
 			r += "  " + when
 		}
@@ -184,9 +195,12 @@ func (m Model) scrubHead(w int) string {
 		tail = dim.Render(fmt.Sprintf(" %d/%d", idx+1, m.replay.total))
 	} else {
 		tail = " " + when
+		if m.span != spanMem && len(m.tier) > 0 {
+			tail = dim.Render(" " + spanNames[m.span] + " t−" + ago(m.now().Sub(m.tier[m.tcur].t)))
+		}
 	}
 	fixed := lipgloss.Width(name) + 1 + lipgloss.Width(sym) + lipgloss.Width(" ◀ ") + lipgloss.Width(" ▶") + lipgloss.Width(tail)
 	cells := min(max(w-fixed, 4), 30)
-	r := sym + dim.Render(" ◀ ") + track(pos, n, cells, alertIn) + dim.Render(" ▶") + tail
+	r := sym + dim.Render(" ◀ ") + drawTrack(cells) + dim.Render(" ▶") + tail
 	return pad(spread(name, r, w), w)
 }

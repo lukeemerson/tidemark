@@ -61,10 +61,13 @@ the cloudflare panels still show any runs it saved earlier.
 | `c` | switch palette: your terminal's 16 colours (default) or the built-in `tidemark` palette |
 | `r` | run a Cloudflare speed test (~30 s) and reload the cloudflare panels |
 | `space` | pause (the screen holds; samples keep arriving) / back to live |
-| `[` `]` · `{` `}` | while paused: step one sample · jump 30, through the last 400 samples |
+| `[` `]` · `{` `}` | while paused: step one unit · jump 30 (a sample, or 10 s on the 24h span) |
+| `z` | scrub span: the 400 samples in memory → the last hour on disk → the last 24 h (10 s buckets) |
 | `q` | quit |
 
-`tidemark -i 500` samples every 500 ms (default 1000). `tidemark -rec session.raw` also records
+`tidemark -i 500` samples every 500 ms (default 1000). History is kept in
+`~/Library/Application Support/tidemark/history` (the last hour of raw samples, and 24 h of 10 s
+summaries, about 75 MB at most); `-nostore` turns that off. `tidemark -rec session.raw` also records
 mactop's samples to a file; `tidemark -play session.raw` replays one at its recorded pace (scrub
 it the same way; load and memory pressure aren't recorded, so they show `—`).
 

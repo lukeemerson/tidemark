@@ -62,27 +62,35 @@ type Model struct {
 	cursor int   // the sample on screen while paused, as a seq index
 	alerts []int // seq indices where a diagnosis rule started firing
 
-	store  Recorder    // the history store, when this tidemark owns it; nil otherwise
-	replay *replayInfo // set by Replay for -play; nil when live
-	noSys  bool        // replay: sysctl readings (load, pressure) aren't in the recording
-	ended  bool        // replay: the recording has finished
+	store    Recorder         // the history store, when this tidemark owns it; nil otherwise
+	storeDir string           // where the stored tiers are read from ("" = no store)
+	span     int              // z: spanMem, spanHour or spanDay (tier.go)
+	tier     []tierPoint      // the stored tier being scrubbed
+	tcur     int              // the cursor in tier
+	recorded bool             // the screen shows stored data: use recorded process names
+	now      func() time.Time // time.Now; tests pin it
+	replay   *replayInfo      // set by Replay for -play; nil when live
+	noSys    bool             // replay: sysctl readings (load, pressure) aren't in the recording
+	ended    bool             // replay: the recording has finished
 }
 
 // Recorder is the history store as the model sees it: each live sample goes to its summary.
 type Recorder interface {
 	Add(s source.Sample, sys source.Sys, sysOK, fired bool, name func(int, string) string)
+	Dir() string
 }
 
-// Store hands each live sample to r (STORE-SPEC.md). A replay never writes.
+// Store hands each live sample to r and lets z scrub what it holds (STORE-SPEC.md). A replay
+// never writes.
 func (m Model) Store(r Recorder) Model {
-	m.store = r
+	m.store, m.storeDir = r, r.Dir()
 	return m
 }
 
 // procName is a process's display name. Live, a bare version number is looked up by PID; on
 // replay the PIDs belong to the recording Mac, so the recorded name is used as is.
 func (m Model) procName(pid int, command string) string {
-	if m.replay != nil {
+	if m.replay != nil || m.recorded {
 		return command
 	}
 	return m.names.Name(pid, command)
@@ -95,7 +103,7 @@ func (m Model) sysOK() bool { return m.have && !m.noSys }
 // mactop's samples arrive on samples later. layout and palette name the starting choices
 // ("" = tiles, ansi).
 func New(samples <-chan source.Sample, runs []source.Run, layout, palette string, save func(layout, palette string)) Model {
-	m := Model{samples: samples, names: source.ProcNames{}, save: save, palette: "ansi", dark: true}
+	m := Model{samples: samples, names: source.ProcNames{}, save: save, palette: "ansi", dark: true, now: time.Now}
 	if palette == "tidemark" {
 		m.palette = palette
 	}
@@ -206,13 +214,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.saveCmd()
 		case "space":
 			if m.paused || !m.have {
-				m.paused = false
+				m.paused, m.span, m.tier = false, spanMem, nil
 			} else {
 				m.paused, m.cursor = true, m.seq-1
 			}
 		case "[", "]", "{", "}":
-			if m.paused {
-				m.moveCursor(map[string]int{"[": -1, "]": 1, "{": -30, "}": 30}[msg.String()])
+			by := map[string]int{"[": -1, "]": 1, "{": -30, "}": 30}[msg.String()]
+			switch {
+			case m.paused && m.span != spanMem:
+				m.tcur = min(max(m.tcur+by, 0), max(len(m.tier)-1, 0)) // points, so gaps are skipped
+			case m.paused:
+				m.moveCursor(by)
+			}
+		case "z":
+			if m.storeDir == "" || m.replay != nil || !m.have {
+				break
+			}
+			if !m.paused {
+				m.paused, m.cursor = true, m.seq-1
+			}
+			if m.span = (m.span + 1) % nSpans; m.span == spanMem {
+				m.tier = nil
+			} else {
+				m.loadTier()
 			}
 		case "r":
 			if m.cloudy != nil {
@@ -383,7 +407,7 @@ func (m Model) tilesLayout(rows, w int) []string {
 		return out[:min(len(out), rows)]
 	}
 	if w < 61 {
-		return append(out, panel("processes", "", w, ph, func(iw int) []string { return m.pProc(iw, ph-3) })...)
+		return append(out, panel(m.procTitle("processes"), "", w, ph, func(iw int) []string { return m.pProc(iw, ph-3) })...)
 	}
 	cw := w * 2 / 3
 	rw := w - cw - 1
@@ -400,7 +424,7 @@ func (m Model) tilesLayout(rows, w int) []string {
 		add("cloudflare", m.cfLabel(), cf, m.pCF)
 	}
 	return append(out, hjoin(
-		panel("processes", "", cw, ph, func(iw int) []string { return m.pProc(iw, ph-3) }),
+		panel(m.procTitle("processes"), "", cw, ph, func(iw int) []string { return m.pProc(iw, ph-3) }),
 		right,
 	)...)
 }
@@ -437,6 +461,14 @@ func (m Model) head(w int) string {
 		l = title.Render(m.name) // drop the core counts before the clock
 	}
 	return pad(spread(l, r, w), w)
+}
+
+// procTitle is a process box's title: its own, or the summary tier's top-5 title.
+func (m Model) procTitle(own string) string {
+	if m.span == spanDay && m.recorded {
+		return procSummaryTitle
+	}
+	return own
 }
 
 // indicator names the layout (and a non-default palette): "sidebar 2/10", "sidebar → tiles".

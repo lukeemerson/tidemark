@@ -23,7 +23,7 @@ func (m Model) glanceLayout(rows, w int) []string {
 		out = append(out, rules.box("cpu", m.hCPU(), w, extra, axisGraph(m.hcpu, w-4, extra-2, 100, "100%", cCPU)...)...)
 		ph = procMax
 	}
-	return append(out, rules.box("processes", "", w, ph, m.pProc(w-4, ph-3)...)...)
+	return append(out, rules.box(m.procTitle("processes"), "", w, ph, m.pProc(w-4, ph-3)...)...)
 }
 
 // ---------------------------------------------------------------------------
@@ -102,5 +102,5 @@ func (m Model) thermalLayout(rows, w int) []string {
 		ascii.box("cpu temp", cpuT, hw, tg, axisGraph(m.htc, hw-4, tg-2, 110, "110°", cTemp)...),
 		ascii.box("gpu temp", gpuT, w-hw-1, tg, axisGraph(m.htg, w-hw-5, tg-2, 110, "110°", cTemp)...),
 	)...)
-	return append(out, ascii.box("processes", "", w, ph, m.pProc(w-4, ph-3)...)...)
+	return append(out, ascii.box(m.procTitle("processes"), "", w, ph, m.pProc(w-4, ph-3)...)...)
 }

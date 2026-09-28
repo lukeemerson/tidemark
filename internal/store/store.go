@@ -216,6 +216,35 @@ func readLines(path string, cutoff time.Time) (keep [][]byte, dropped bool) {
 	return keep, dropped
 }
 
+// Dir is the store's directory, for reading the tiers back.
+func (s *Store) Dir() string { return s.dir }
+
+// Raw reads the full tier: every sample from the hour before now, oldest first, from the current
+// and previous hour files. Unreadable lines (a line cut off mid-write) are skipped.
+func Raw(dir string, now time.Time) []source.Sample {
+	var out []source.Sample
+	for _, h := range []time.Time{now.Add(-time.Hour), now} {
+		f, err := os.Open(filepath.Join(dir, "raw-"+h.Format(rawLayout)+".raw"))
+		if err != nil {
+			continue
+		}
+		sc := bufio.NewScanner(f)
+		sc.Buffer(make([]byte, 0, 1<<20), 16<<20)
+		for sc.Scan() {
+			line := bytes.TrimRight(bytes.TrimLeft(sc.Bytes(), "[,"), ",]")
+			var s source.Sample
+			if len(line) == 0 || line[0] != '{' || json.Unmarshal(line, &s) != nil {
+				continue
+			}
+			if !s.Timestamp.Before(now.Add(-time.Hour)) && !s.Timestamp.After(now) {
+				out = append(out, s)
+			}
+		}
+		f.Close()
+	}
+	return out
+}
+
 // Summary reads the summary tier from dir: buckets from the last 24 h before now, oldest first.
 // Unreadable lines (a line cut off mid-write) are skipped.
 func Summary(dir string, now time.Time) []Bucket {

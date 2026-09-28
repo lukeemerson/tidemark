@@ -208,6 +208,8 @@ func TestReplayKeepsLocalCoresWhenUnrecorded(t *testing.T) {
 
 type recorderStub struct{ adds, fired int }
 
+func (r *recorderStub) Dir() string { return "" }
+
 func (r *recorderStub) Add(_ source.Sample, _ source.Sys, _, fired bool, _ func(int, string) string) {
 	r.adds++
 	if fired {

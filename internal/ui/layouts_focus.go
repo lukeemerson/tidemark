@@ -39,8 +39,8 @@ func (m Model) computeLayout(rows, w int) []string {
 
 	ph := rows - len(out)
 	return append(out, hjoin(
-		square.box("top cpu", "", hw, ph, m.pProc(hw-4, ph-3)...),
-		square.box("top gpu", "", rw, ph, m.pProcBy(rw-4, ph-3, "gpu")...),
+		square.box(m.procTitle("top cpu"), "", hw, ph, m.pProc(hw-4, ph-3)...),
+		square.box(m.procTitle("top gpu"), "", rw, ph, m.pProcBy(rw-4, ph-3, "gpu")...),
 	)...)
 }
 
@@ -102,7 +102,7 @@ func (m Model) memoryLayout(rows, w int) []string {
 	)...)
 
 	ph := rows - len(out)
-	return append(out, dashed.box("processes by memory", "", w, ph, m.pProcBy(w-4, ph-3, "mem")...)...)
+	return append(out, dashed.box(m.procTitle("processes by memory"), "", w, ph, m.pProcBy(w-4, ph-3, "mem")...)...)
 }
 
 // ---------------------------------------------------------------------------
