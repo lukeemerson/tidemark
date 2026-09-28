@@ -40,13 +40,14 @@ Proposed, not yet decided with Luke:
 
 | area | item | source |
 | --- | --- | --- |
+| repo | **next:** reorganize into 2d/3d × prod/dev (paused mid-planning; prototypes and tidalrat use relative paths into `monitor-3d/shared/` and `design-system/`) | Luke |
+| repo | **after that:** a deeper config map | Luke |
 | 2D | "what changed?" feed; processes grouped by project | README |
 | 2D | process actions (kill/renice with a y/n confirm) | TODO-future |
 | 3D | `--die` chip floorplan, then the throttle hotspot on it | PLAN row 3 |
 | 3D | `--web`, `--wall` | PLAN rows 4, 7 |
 | both | in-process sampling (vendored mactop IOReport), dropping the ~1–1.8 s startup | PLAN.md |
 | both | Rust rewrite: tidalrat is the pilot | monitor-3d/PLAN.md |
-| repo | reorganize into 2d/3d × prod/dev | Luke, earlier |
 
 ## Team
 - design: specs, mockups, sign-off, and general manager.
