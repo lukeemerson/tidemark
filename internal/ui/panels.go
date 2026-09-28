@@ -77,8 +77,8 @@ func (m Model) pPow(w, h int) []string {
 	soc := m.s.SoC
 	out := []string{dim.Render(" system ") + num(m.have, "%.1f", soc.SystemPower) + dim.Render(" W  ·  GPU ") +
 		num(m.have, "%.1f", soc.GPUPower) + dim.Render(" W")}
-	top := hmax(m.hpow, 1)
-	return append(out, axisGraph(m.hpow, m.ghost(sPow), w, h, top, fmt.Sprintf("%.1fW", top), cPower)...)
+	t := top(m.hpow, m.ghost(sPow))
+	return append(out, axisGraph(m.hpow, m.ghost(sPow), w, h, t, fmt.Sprintf("%.1fW", t), cPower)...)
 }
 
 func (m Model) pMem(w int) []string {

@@ -43,15 +43,15 @@ func (m Model) wallLayout(rows, w int) []string {
 	freq := dim.Render(fmt.Sprintf("E %s · P %s MHz", num(m.have, "%.0f", soc.EFreqMHz), num(m.have, "%.0f", soc.PFreqMHz)))
 	out = append(out, g("cpu", freq+"  "+m.hCPU(), m.hcpu, m.ghost(sCPU), w, first, 100, "100%", cCPU)...)
 	out = append(out, g("gpu", m.hGPU(), m.hgpu, m.ghost(sGPU), w, h, 100, "100%", cGPU)...)
-	out = append(out, g("power", m.hPow(), m.hpow, m.ghost(sPow), w, h, hmax(m.hpow, 1), fmt.Sprintf("%.1fW", hmax(m.hpow, 1)), cPower)...)
+	out = append(out, g("power", m.hPow(), m.hpow, m.ghost(sPow), w, h, top(m.hpow, m.ghost(sPow)), fmt.Sprintf("%.1fW", top(m.hpow, m.ghost(sPow))), cPower)...)
 	out = append(out, g("memory", m.hMem(), m.hmem, m.ghost(sMem), w, h, 100, "100%", cMem)...)
 	out = append(out, hjoin(
-		g("net ↓", rate(m.have, nd.InBytes), m.hnin, m.ghost(sNin), hw, h, hmax(m.hnin, 1), shortRate(hmax(m.hnin, 1)), cDown),
-		g("net ↑", rate(m.have, nd.OutBytes), m.hnout, m.ghost(sNout), rw, h, hmax(m.hnout, 1), shortRate(hmax(m.hnout, 1)), cUp),
+		g("net ↓", rate(m.have, nd.InBytes), m.hnin, m.ghost(sNin), hw, h, top(m.hnin, m.ghost(sNin)), shortRate(top(m.hnin, m.ghost(sNin))), cDown),
+		g("net ↑", rate(m.have, nd.OutBytes), m.hnout, m.ghost(sNout), rw, h, top(m.hnout, m.ghost(sNout)), shortRate(top(m.hnout, m.ghost(sNout))), cUp),
 	)...)
 	return append(out, hjoin(
-		g("disk read", rate(m.have, nd.ReadKBytes*1024), m.hdr, m.ghost(sDR), hw, h, hmax(m.hdr, 1), shortRate(hmax(m.hdr, 1)), cDown),
-		g("disk write", rate(m.have, nd.WriteKB*1024), m.hdw, m.ghost(sDW), rw, h, hmax(m.hdw, 1), shortRate(hmax(m.hdw, 1)), cUp),
+		g("disk read", rate(m.have, nd.ReadKBytes*1024), m.hdr, m.ghost(sDR), hw, h, top(m.hdr, m.ghost(sDR)), shortRate(top(m.hdr, m.ghost(sDR))), cDown),
+		g("disk write", rate(m.have, nd.WriteKB*1024), m.hdw, m.ghost(sDW), rw, h, top(m.hdw, m.ghost(sDW)), shortRate(top(m.hdw, m.ghost(sDW))), cUp),
 	)...)
 }
 
@@ -93,7 +93,7 @@ func (m Model) thermalLayout(rows, w int) []string {
 		kv("battery", batt),
 	}
 	out = append(out, hjoin(
-		ascii.box("power", m.hPow(), lw, th, axisGraph(m.hpow, m.ghost(sPow), lw-4, th-2, peak, fmt.Sprintf("%.1fW", peak), cPower)...),
+		ascii.box("power", m.hPow(), lw, th, axisGraph(m.hpow, m.ghost(sPow), lw-4, th-2, top(m.hpow, m.ghost(sPow)), fmt.Sprintf("%.1fW", top(m.hpow, m.ghost(sPow))), cPower)...),
 		ascii.box("energy", "", rw, th, readout...),
 	)...)
 	cpuT := withB(num(m.have, "%.0f°", soc.CPUTemp), m.vsB(sTC))

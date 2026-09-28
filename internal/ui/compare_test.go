@@ -121,3 +121,15 @@ func TestMarkDaySpan(t *testing.T) {
 		t.Errorf("ghost at %v per column: %d values, want %d", m.step(), got, want)
 	}
 }
+
+// Review finding on 2deda05: an auto-scaled graph takes B's peak when it's higher, so B at 40 W
+// doesn't draw as tall as A's 10 W peak.
+func TestGhostSetsTop(t *testing.T) {
+	m := New(nil, nil, "", "", nil)
+	m.have, m.hpow = true, []float64{5, 10}
+	m.mark = &markB{step: time.Second}
+	m.mark.hs[sPow] = []float64{40, 40}
+	if got := ansi.Strip(m.pPow(40, 4)[1]); !strings.Contains(got, "40.0W") {
+		t.Errorf("power graph's top row %q, want the 40.0W label", got)
+	}
+}

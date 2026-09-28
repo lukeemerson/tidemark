@@ -209,7 +209,7 @@ func (m Model) historyBand(pr *int, w int) []string {
 	rw := w - 3 - lw
 	return band([3]string{"╠", "╬", "╣"}, "cpu history", m.hCPU(), lw, "power history", m.hPow(), rw,
 		axisGraph(m.hcpu, m.ghost(sCPU), lw-2, extra-1, 100, "100%", cCPU),
-		axisGraph(m.hpow, m.ghost(sPow), rw-2, extra-1, hmax(m.hpow, 1), fmt.Sprintf("%.1fW", hmax(m.hpow, 1)), cPower))
+		axisGraph(m.hpow, m.ghost(sPow), rw-2, extra-1, top(m.hpow, m.ghost(sPow)), fmt.Sprintf("%.1fW", top(m.hpow, m.ghost(sPow))), cPower))
 }
 
 // procBand is the full-width process table under the last two-column band, rows lines tall.

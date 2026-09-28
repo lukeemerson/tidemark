@@ -92,8 +92,8 @@ func (m Model) memoryLayout(rows, w int) []string {
 	if extra := rows - len(out) - sh - procMax; extra > 0 { // process list is full; graphs take the rest
 		sh += extra
 	}
-	swapTop := max(hmax(m.hswap, 1), mem.SwapTotal)
-	loadTop := max(hmax(m.hload, 1), float64(m.ne+m.np))
+	swapTop := max(top(m.hswap, m.ghost(sSwap)), mem.SwapTotal)
+	loadTop := max(top(m.hload, m.ghost(sLoad)), float64(m.ne+m.np))
 	out = append(out, hjoin(
 		dashed.box("swap", num(m.have, "%.2f GB", mem.SwapUsed/1073741824), hw, sh,
 			axisGraph(m.hswap, m.ghost(sSwap), hw-4, sh-2, swapTop, gb(swapTop)+"G", cMem)...),
@@ -120,8 +120,8 @@ func (m Model) ioLayout(rows, w int) []string {
 		nh, dh = nh+extra-extra/2, dh+extra/2
 	}
 	rg := func(t string, v float64, hist, ghost []float64, bw, bh int, col lipgloss.Style) []string {
-		top := hmax(hist, 1)
-		return hdashed.box(t, rate(m.have, v), bw, bh, axisGraph(hist, ghost, bw-4, bh-2, top, shortRate(top), col)...)
+		t0 := top(hist, ghost)
+		return hdashed.box(t, rate(m.have, v), bw, bh, axisGraph(hist, ghost, bw-4, bh-2, t0, shortRate(t0), col)...)
 	}
 	out = append(out, hjoin(
 		rg("net ↓", nd.InBytes, m.hnin, m.ghost(sNin), hw, nh, cDown),

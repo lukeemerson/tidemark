@@ -298,6 +298,10 @@ func axisGraph(hist, ghost []float64, w, h int, top float64, label string, col l
 	return rows
 }
 
+// top is an auto-scaled graph's top: its own peak, or a compared ghost's when higher, so a
+// higher B isn't clipped to A's scale.
+func top(hist, ghost []float64) float64 { return max(hmax(hist, 1), hmax(ghost, 1)) }
+
 // shortRate is rate for axis labels: "2.5K/s", "16M/s". Units step up at 999.5 (not 1024), so a
 // label never rounds to 4 digits and always fits axisGraph's 6-column gutter.
 func shortRate(b float64) string {
