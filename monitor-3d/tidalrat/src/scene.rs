@@ -426,6 +426,8 @@ pub struct Terrain<'a> {
 const TERRAIN_MIN_DEPTH: f64 = 6.0;
 /// alert markers sit this many lane widths outside the floor's side edge, clear of the lanes
 const ALERT_GAP: f64 = 2.5;
+/// and this high: just above the tallest possible ridge (HMAX), where no ridge can cover them
+const ALERT_Y: f64 = HMAX + 0.3;
 
 impl Terrain<'_> {
     fn half_x(&self) -> f64 {
@@ -453,10 +455,10 @@ impl Terrain<'_> {
         // the alert marker lines beside both side edges, so markers never leave the frame
         let ax = hx + ALERT_GAP;
         let mut pts = vec![
-            (-ax, 0.0, -hz),
-            (-ax, 0.0, hz),
-            (ax, 0.0, -hz),
-            (ax, 0.0, hz),
+            (-ax, ALERT_Y, -hz),
+            (-ax, ALERT_Y, hz),
+            (ax, ALERT_Y, -hz),
+            (ax, ALERT_Y, hz),
         ];
         for x in [-hx, hx] {
             for z in [-hz, hz + 0.6] {
@@ -532,8 +534,8 @@ impl Terrain<'_> {
                 ((py / 4.0).floor() as i64, (px / 2.0).round() as i64 - 1)
             })
             .collect();
-        // ▲ on the floor plane beside whichever side edge faces screen-left at this yaw, level
-        // with the row where a rule fired; it switches sides as the terrain turns past side-on
+        // ▲ above the tallest ridge, beside whichever side edge faces screen-left at this yaw,
+        // level with the row where a rule fired; it switches sides past side-on
         let ax = hx + ALERT_GAP;
         let mx = if cam.view(-ax, 0.0, 0.0).0 <= cam.view(ax, 0.0, 0.0).0 {
             -ax
@@ -545,7 +547,7 @@ impl Terrain<'_> {
             .iter()
             .filter(|&&(r, _)| r < self.rows.len())
             .map(|&(r, on_cursor)| {
-                let (px, py) = proj(mx, 0.0, self.slot_z(off + r));
+                let (px, py) = proj(mx, ALERT_Y, self.slot_z(off + r));
                 let role = if on_cursor { Role::Mid } else { Role::High };
                 (
                     (py / 4.0).floor() as i64,
@@ -726,5 +728,30 @@ mod tests {
             ..t
         };
         assert!(t2.render(100, 30, &t2.camera(0.0, 0.45)).marks.is_empty());
+    }
+
+    #[test]
+    fn raised_markers_clear_tall_ridges_at_the_default_pitch() {
+        // the case that failed on the floor plane: tall, uneven loads, alerts all the way back
+        let rows: Vec<Vec<f64>> = (0..90)
+            .map(|i| vec![30.0 + (i % 7) as f64 * 10.0; 10])
+            .collect();
+        let alerts: Vec<(usize, bool)> = (0..90).step_by(10).map(|r| (r, false)).collect();
+        let t = Terrain {
+            lanes: 10,
+            rows: &rows,
+            window: 90,
+            alerts: &alerts,
+        };
+        for yaw in [0.0, 0.6, 1.2, -0.6, 3.0, 3.6] {
+            let c = t.render(100, 30, &t.camera(yaw, 0.45));
+            for &(r, col, _, _) in &c.marks {
+                let under = c.cells[r as usize][col as usize].1;
+                assert!(
+                    matches!(under, None | Some(Role::Dim)),
+                    "yaw {yaw}: marker at ({r},{col}) covers a ridge"
+                );
+            }
+        }
     }
 }
