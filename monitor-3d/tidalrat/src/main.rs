@@ -1,10 +1,12 @@
-//! tidalrat: 3D views of the tidemark monitor data. `tidalrat --cores` is the first.
+//! tidalrat: 3D views of the tidemark monitor data: `--cores` and `--terrain`.
 
 mod cores;
 mod ratty;
 mod scene;
 mod source;
+mod terrain;
 mod theme;
+mod ui;
 
 use std::process::ExitCode;
 
@@ -12,27 +14,50 @@ const USAGE: &str = "\
 tidalrat — 3D views of your Mac's load
 
 usage:
-  tidalrat --cores [--replay] [--ratty]
+  tidalrat --cores   [--replay | --play <file>] [--ratty]
+  tidalrat --terrain [--replay | --play <file>]
 
 commands:
-  --cores     per-core load as a rotating 3D bar chart (live mactop)
+  --cores     per-core load as a rotating 3D bar chart
+  --terrain   per-core load over time as a landscape you can scrub
 
 options:
-  --replay    play the bundled 90-second recording instead of live mactop
-  --ratty     draw the columns as real 3D objects (auto when running inside Ratty)
-  -h, --help  show this help
+  --replay       play the bundled 90-second recording instead of live mactop
+  --play <file>  play a saved `mactop --headless` stream at its recorded spacing
+  --ratty        draw the columns as real 3D objects (auto when running inside Ratty)
+  -h, --help     show this help
 ";
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Command {
+    Cores,
+    Terrain,
+}
+
+#[derive(Debug, Default)]
+pub struct Opts {
+    pub replay: bool,
+    pub play: Option<String>,
+    pub ratty: bool,
+    pub frames: Option<u64>,
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match parse(&args) {
-        Ok(Some(opts)) => match cores::run(opts) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(e) => {
-                eprintln!("tidalrat: {e}");
-                ExitCode::FAILURE
+        Ok(Some((cmd, opts))) => {
+            let r = match cmd {
+                Command::Cores => cores::run(&opts),
+                Command::Terrain => terrain::run(&opts),
+            };
+            match r {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("tidalrat: {e}");
+                    ExitCode::FAILURE
+                }
             }
-        },
+        }
         Ok(None) => {
             print!("{USAGE}");
             ExitCode::SUCCESS
@@ -45,18 +70,23 @@ fn main() -> ExitCode {
 }
 
 /// `Ok(None)` means print help.
-fn parse(args: &[String]) -> Result<Option<cores::Opts>, String> {
-    let mut opts = cores::Opts {
-        replay: false,
-        ratty: false,
-        frames: None,
-    };
-    let mut command = false;
+fn parse(args: &[String]) -> Result<Option<(Command, Opts)>, String> {
+    let mut opts = Opts::default();
+    let mut command = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
+        let set = |c: Command, cur: &mut Option<Command>| match cur {
+            Some(_) => Err("give one command".to_string()),
+            None => {
+                *cur = Some(c);
+                Ok(())
+            }
+        };
         match a.as_str() {
-            "--cores" => command = true,
+            "--cores" => set(Command::Cores, &mut command)?,
+            "--terrain" => set(Command::Terrain, &mut command)?,
             "--replay" => opts.replay = true,
+            "--play" => opts.play = Some(it.next().ok_or("--play needs a file")?.clone()),
             "--ratty" => opts.ratty = true,
             "-h" | "--help" => return Ok(None),
             // hidden: exit after N frames, for tests and captures
@@ -70,32 +100,46 @@ fn parse(args: &[String]) -> Result<Option<cores::Opts>, String> {
             other => return Err(format!("unknown option {other}")),
         }
     }
-    if !command {
+    let Some(cmd) = command else {
         return if args.is_empty() {
             Ok(None)
         } else {
             Err("no command given".into())
         };
+    };
+    if opts.replay && opts.play.is_some() {
+        return Err("use --replay or --play, not both".into());
     }
-    Ok(Some(opts))
+    if opts.ratty && cmd != Command::Cores {
+        return Err("--ratty only works with --cores".into());
+    }
+    Ok(Some((cmd, opts)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn p(s: &str) -> Result<Option<cores::Opts>, String> {
+    fn p(s: &str) -> Result<Option<(Command, Opts)>, String> {
         parse(&s.split_whitespace().map(String::from).collect::<Vec<_>>())
     }
 
     #[test]
     fn parses_commands_and_flags() {
-        let o = p("--cores --replay --frames 5").unwrap().unwrap();
+        let (c, o) = p("--cores --replay --frames 5").unwrap().unwrap();
+        assert_eq!(c, Command::Cores);
         assert!(o.replay && !o.ratty);
         assert_eq!(o.frames, Some(5));
+        let (c, o) = p("--terrain --play rec.raw").unwrap().unwrap();
+        assert_eq!(c, Command::Terrain);
+        assert_eq!(o.play.as_deref(), Some("rec.raw"));
         assert!(p("").unwrap().is_none());
         assert!(p("--help").unwrap().is_none());
         assert!(p("--replay").is_err());
         assert!(p("--cores --bogus").is_err());
+        assert!(p("--cores --terrain").is_err());
+        assert!(p("--terrain --ratty").is_err());
+        assert!(p("--terrain --replay --play x").is_err());
+        assert!(p("--terrain --play").is_err());
     }
 }

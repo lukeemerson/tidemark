@@ -24,7 +24,11 @@ pub struct Camera {
 impl Camera {
     /// The distance grows with the layout so wide chips (8E + 24P) stay in front of the camera.
     pub fn new(yaw: f64, pitch: f64, cores: &[Core]) -> Self {
-        let d = D.max(2.5 * floor_half(cores));
+        Camera::at(yaw, pitch, D.max(2.5 * floor_half(cores)))
+    }
+
+    /// A camera `d` from the rotation axis.
+    fn at(yaw: f64, pitch: f64, d: f64) -> Self {
         let (cy, sy, cp, sp) = (yaw.cos(), yaw.sin(), pitch.cos(), pitch.sin());
         let pos = [d * cp * sy, HMAX * 0.4 + d * sp, d * cp * cy];
         Camera {
@@ -119,10 +123,22 @@ fn extent(cam: &Camera, cores: &[Core]) -> Vec<(f64, f64, f64)> {
 /// to screen x = 0 at any yaw) pinned to the centre column. The scale is the largest that keeps
 /// every drawn point inside at every yaw (sampled every 5°), measured out from that axis.
 pub fn fit(pitch: f64, cores: &[Core], dw: usize, dh: usize) -> (f64, f64, f64) {
+    let d = Camera::new(0.0, pitch, cores).d;
+    fit_extent(pitch, d, dw, dh, |cam| extent(cam, cores))
+}
+
+/// `fit` for any scene: `extent` lists every point the scene can draw from a given camera.
+fn fit_extent(
+    pitch: f64,
+    d: f64,
+    dw: usize,
+    dh: usize,
+    extent: impl Fn(&Camera) -> Vec<(f64, f64, f64)>,
+) -> (f64, f64, f64) {
     let (mut ax, mut y0, mut y1) = (0.0f64, f64::MAX, f64::MIN);
     for step in 0..72 {
-        let cam = Camera::new(step as f64 * std::f64::consts::PI / 36.0, pitch, cores);
-        for (x, y, z) in extent(&cam, cores) {
+        let cam = Camera::at(step as f64 * std::f64::consts::PI / 36.0, pitch, d);
+        for (x, y, z) in extent(&cam) {
             let (sx, sy, _) = cam.view(x, y, z);
             (ax, y0, y1) = (ax.max(sx.abs()), y0.min(sy), y1.max(sy));
         }
@@ -272,8 +288,8 @@ pub struct Chart {
     pub cells: Vec<Vec<(char, Option<Role>)>>,
     /// per core: (row, col) cell where its label starts, in chart cells
     pub labels: Vec<(i64, i64)>,
-    /// scale post ticks: (row, col of the post, text); the caller places the text beside it
-    pub ticks: Vec<(i64, i64, &'static str)>,
+    /// scale ticks: (row, col of the anchor, text); the caller places the text beside it
+    pub ticks: Vec<(i64, i64, String)>,
 }
 
 /// `columns = false` draws only the floor, labels and scale (Ratty draws the columns in 3D).
@@ -308,7 +324,11 @@ pub fn render(
         .iter()
         .map(|&(f, text)| {
             let a = proj(-half, HMAX * f, -1.2);
-            ((a.1 / 4.0).floor() as i64, (a.0 / 2.0).round() as i64, text)
+            (
+                (a.1 / 4.0).floor() as i64,
+                (a.0 / 2.0).round() as i64,
+                text.to_string(),
+            )
         })
         .collect();
     let post = |cv: &mut Canvas, owner: i32| {
@@ -391,6 +411,135 @@ pub fn render(
         cells: cv.cells(&colours),
         labels,
         ticks,
+    }
+}
+
+/// Cores × time as a braille landscape: one ridge per core, newest sample at the front edge.
+/// Far ridges are drawn first, and the area under each ridge is erased down to the floor, so
+/// nearer ridges hide what's behind them. Each 1-sample segment takes its newer end's level
+/// colour. Framing is fixed across yaws with the rotation axis centred, like `fit`.
+pub struct Terrain<'a> {
+    /// cores in lane order (E first)
+    pub lanes: usize,
+    /// samples in the window, oldest first, one load per core; at most `window` long, and
+    /// aligned so the last row sits at the front edge
+    pub rows: &'a [Vec<f64>],
+    pub window: usize,
+    /// age of the oldest row, e.g. "t−90s", drawn beside it at the floor's left edge
+    pub back_label: String,
+}
+
+const TERRAIN_MIN_DEPTH: f64 = 6.0;
+
+impl Terrain<'_> {
+    fn half_x(&self) -> f64 {
+        self.lanes as f64 / 2.0
+    }
+    fn half_z(&self) -> f64 {
+        self.lanes.max(TERRAIN_MIN_DEPTH as usize) as f64 / 2.0
+    }
+    fn lane_x(&self, c: usize) -> f64 {
+        c as f64 - (self.lanes as f64 - 1.0) / 2.0
+    }
+    /// z of window slot `j` (0 = oldest slot, window-1 = front edge)
+    fn slot_z(&self, j: usize) -> f64 {
+        let hz = self.half_z();
+        -hz + 2.0 * hz * j as f64 / (self.window.max(2) - 1) as f64
+    }
+    fn distance(&self) -> f64 {
+        D.max(2.5 * self.half_x().max(self.half_z()))
+    }
+    fn label_point(&self, c: usize) -> (f64, f64, f64) {
+        (self.lane_x(c), 0.0, self.half_z() + 0.6)
+    }
+    fn extent(&self) -> Vec<(f64, f64, f64)> {
+        let (hx, hz) = (self.half_x(), self.half_z());
+        let mut pts = vec![];
+        for x in [-hx, hx] {
+            for z in [-hz, hz + 0.6] {
+                for y in [0.0, HMAX] {
+                    pts.push((x, y, z));
+                }
+            }
+        }
+        pts
+    }
+
+    pub fn camera(&self, yaw: f64, pitch: f64) -> Camera {
+        Camera::at(yaw, pitch, self.distance())
+    }
+
+    pub fn render(&self, cw: usize, ch: usize, cam: &Camera) -> Chart {
+        let mut cv = Canvas::new(cw, ch);
+        let pts = self.extent();
+        let (k, ox, oy) = fit_extent(cam.pitch, self.distance(), cv.dw, cv.dh, |_| pts.clone());
+        let proj = |x: f64, y: f64, z: f64| {
+            let (sx, sy, _) = cam.view(x, y, z);
+            (ox + sx * k, oy - sy * k)
+        };
+        let (hx, hz) = (self.half_x(), self.half_z());
+
+        // floor in dim: the outline, and a line every 10 samples back from the front edge
+        for (a, b) in [
+            ((-hx, -hz), (hx, -hz)),
+            ((-hx, hz), (hx, hz)),
+            ((-hx, -hz), (-hx, hz)),
+            ((hx, -hz), (hx, hz)),
+        ] {
+            cv.line(proj(a.0, 0.0, a.1), proj(b.0, 0.0, b.1), -1);
+        }
+        let mut j = self.window as i64 - 1 - 10;
+        while j > 0 {
+            let z = self.slot_z(j as usize);
+            cv.line(proj(-hx, 0.0, z), proj(hx, 0.0, z), -1);
+            j -= 10;
+        }
+
+        let off = self.window.saturating_sub(self.rows.len());
+        let mut order: Vec<usize> = (0..self.lanes).collect();
+        let dist = |c: usize| cam.view(self.lane_x(c), 0.0, 0.0).2;
+        order.sort_by(|&a, &b| dist(b).total_cmp(&dist(a)));
+        let mut colours = vec![];
+        let never: Pattern = |_, _| false;
+        for &c in &order {
+            let x = self.lane_x(c);
+            let h = |r: &Vec<f64>| r.get(c).copied().unwrap_or(0.0) / 100.0 * HMAX;
+            for (i, pair) in self.rows.windows(2).enumerate() {
+                let (z0, z1) = (self.slot_z(off + i), self.slot_z(off + i + 1));
+                let (h0, h1) = (h(&pair[0]), h(&pair[1]));
+                let rank = colours.len() as i32;
+                colours.push(level(pair[1].get(c).copied().unwrap_or(0.0)));
+                let (p0, p1) = (proj(x, h0, z0), proj(x, h1, z1));
+                cv.poly(&[proj(x, 0.0, z0), proj(x, 0.0, z1), p1, p0], never, rank);
+                cv.line(p0, p1, rank);
+            }
+            // the front edge drops to the floor, so each lane reads as a solid profile
+            if let Some(last) = self.rows.last() {
+                let z = self.slot_z(self.window - 1);
+                let rank = colours.len() as i32;
+                colours.push(level(last.get(c).copied().unwrap_or(0.0)));
+                cv.line(proj(x, 0.0, z), proj(x, h(last), z), rank);
+            }
+        }
+
+        let labels = (0..self.lanes)
+            .map(|c| {
+                let (lx, ly, lz) = self.label_point(c);
+                let (px, py) = proj(lx, ly, lz);
+                ((py / 4.0).floor() as i64, (px / 2.0).round() as i64 - 1)
+            })
+            .collect();
+        let b = proj(-hx, 0.0, self.slot_z(off));
+        let ticks = vec![(
+            (b.1 / 4.0).floor() as i64,
+            (b.0 / 2.0).round() as i64,
+            self.back_label.clone(),
+        )];
+        Chart {
+            cells: cv.cells(&colours),
+            labels,
+            ticks,
+        }
     }
 }
 
@@ -478,5 +627,53 @@ mod tests {
         let roles: Vec<_> = chart.cells.iter().flatten().filter_map(|c| c.1).collect();
         assert!(roles.contains(&Role::High));
         assert!(!roles.contains(&Role::Low));
+    }
+
+    #[test]
+    fn terrain_fits_every_yaw_and_colours_by_level() {
+        let rows: Vec<Vec<f64>> = (0..90)
+            .map(|i| vec![if i > 60 { 95.0 } else { 20.0 }; 10])
+            .collect();
+        let t = Terrain {
+            lanes: 10,
+            rows: &rows,
+            window: 90,
+            back_label: "t−90s".into(),
+        };
+        let (dw, dh) = (160, 96);
+        let (k, ox, oy) = fit_extent(0.45, t.distance(), dw, dh, |_| t.extent());
+        assert_eq!(ox, dw as f64 / 2.0);
+        for step in 0..48 {
+            let cam = t.camera(step as f64 * 0.13, 0.45);
+            for (x, y, z) in t.extent() {
+                let (sx, sy, d) = cam.view(x, y, z);
+                assert!(d > 1.0);
+                let (px, py) = (ox + sx * k, oy - sy * k);
+                assert!(
+                    px > 0.0 && px < dw as f64 && py > 0.0 && py < dh as f64,
+                    "({px},{py})"
+                );
+            }
+        }
+        let chart = t.render(80, 24, &t.camera(0.6, 0.45));
+        let roles: Vec<_> = chart.cells.iter().flatten().filter_map(|c| c.1).collect();
+        assert!(
+            roles.contains(&Role::High) && roles.contains(&Role::Low) && roles.contains(&Role::Dim)
+        );
+        assert_eq!(chart.labels.len(), 10);
+    }
+
+    #[test]
+    fn terrain_with_a_short_history_sits_at_the_front() {
+        let rows = vec![vec![50.0; 10]; 5];
+        let t = Terrain {
+            lanes: 10,
+            rows: &rows,
+            window: 90,
+            back_label: String::new(),
+        };
+        assert!(t.slot_z(89) > t.slot_z(0));
+        let chart = t.render(80, 24, &t.camera(0.6, 0.45));
+        assert!(chart.cells.iter().flatten().any(|c| c.1 == Some(Role::Mid)));
     }
 }

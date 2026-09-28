@@ -22,7 +22,7 @@ Committed on branch `3d`; `main` is untouched.
 | # | command | status |
 | --- | --- | --- |
 | 1 | `--cores`: live 3D core chart in braille, real 3D cubes inside Ratty | **built** (`tidalrat/`) |
-| 2 | `--terrain`: C in the terminal, a braille history landscape you can rotate and scrub | option |
+| 2 | `--terrain`: C in the terminal, a braille history landscape you can rotate and scrub | **built** |
 | 3 | `--die`: B in the terminal, an isometric chip floorplan | option |
 | 4 | `--web`: serve live mactop to the browser prototypes A, B and C | option |
 | 5 | `--ratty`: tidemark's screen with 3D objects pinned to panels (needs Ratty) | option |

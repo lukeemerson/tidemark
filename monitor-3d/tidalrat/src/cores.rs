@@ -1,25 +1,21 @@
 //! `tidalrat --cores`: per-core load as a rotating 3D bar chart inside a Monitor TUI heavy frame.
 
+use crate::Opts;
 use crate::ratty::{self, Columns};
 use crate::scene::{self, Camera};
 use crate::source::{Meta, Sample, Source};
 use crate::theme::{Role, bold, fg, level};
+use crate::ui;
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     layout::Rect,
     text::{Line, Span},
-    widgets::{Block, BorderType, Paragraph, Widget},
+    widgets::{Paragraph, Widget},
 };
 use std::io;
 use std::time::{Duration, Instant};
-
-pub struct Opts {
-    pub replay: bool,
-    pub ratty: bool,
-    pub frames: Option<u64>,
-}
 
 const FRAME: Duration = Duration::from_millis(50);
 const MIN_W: u16 = 60;
@@ -40,14 +36,11 @@ struct App {
     mactop_stopped: bool,
 }
 
-pub fn run(opts: Opts) -> io::Result<()> {
-    let source = if opts.replay {
-        Source::replay()
-    } else {
-        Source::live().unwrap_or_else(Source::replay)
-    };
+pub fn run(opts: &Opts) -> io::Result<()> {
+    let source = crate::source::open(opts.replay, opts.play.as_deref())?;
     let meta = if source.is_replay() {
-        Some(crate::source::recording().0)
+        // --play learns the machine from its samples
+        opts.play.is_none().then(|| crate::source::recording().0)
     } else {
         crate::source::static_meta()
     };
@@ -86,7 +79,7 @@ impl App {
         loop {
             let dt = last.elapsed().as_secs_f64();
             last = Instant::now();
-            if let Some((s, m)) = self.source.poll() {
+            for (s, m) in self.source.poll() {
                 if let Some(m) = m
                     && self.meta.as_ref() != Some(&m)
                 {
@@ -184,14 +177,7 @@ impl App {
             Some(s) => Span::styled(format!(" {:.0}% ", s.cpu), bold(level(s.cpu))),
             None => Span::styled(" — ", fg(Role::Dim)),
         };
-        let block = Block::bordered()
-            .border_type(BorderType::Thick)
-            .border_style(fg(Role::Dim))
-            .title(Line::from(vec![
-                Span::styled("━", fg(Role::Dim)),
-                Span::styled(" cores · 3d ", bold(Role::Text)),
-            ]))
-            .title(Line::from(vec![right, Span::styled("━", fg(Role::Dim))]).right_aligned());
+        let block = ui::frame("cores · 3d", right);
         let frame_area = Rect::new(x0, 1, w, h - 2);
         let inner = block.inner(frame_area);
         block.render(frame_area, f.buffer_mut());
@@ -208,7 +194,8 @@ impl App {
         let cam = Camera::new(self.yaw, self.pitch, &cores);
         let (cw, ch) = (chart_area.width as usize, chart_area.height as usize);
         let chart = scene::render(cw, ch, &cam, &cores, &self.loads, !self.columns.on);
-        draw_chart(f.buffer_mut(), chart_area, &chart, &cores);
+        let labels: Vec<String> = cores.iter().map(|c| c.label.clone()).collect();
+        ui::draw_chart(f.buffer_mut(), chart_area, &chart, &labels);
 
         let anchors: Vec<(u16, u16)> = chart
             .labels
@@ -290,64 +277,5 @@ impl App {
         Line::from(Span::styled(format!("{state} "), fg(Role::Dim)))
             .right_aligned()
             .render(area, buf);
-    }
-}
-
-/// Chart cells, scale ticks where they fit whole, then core labels on top of everything.
-fn draw_chart(buf: &mut Buffer, area: Rect, chart: &scene::Chart, cores: &[scene::Core]) {
-    for (y, row) in chart.cells.iter().enumerate() {
-        for (x, &(ch, role)) in row.iter().enumerate() {
-            if let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + y as u16)) {
-                cell.set_char(ch);
-                if let Some(r) = role {
-                    cell.set_style(fg(r));
-                }
-            }
-        }
-    }
-    let free = |y: i64, x: i64| {
-        y >= 0
-            && x >= 0
-            && y < area.height as i64
-            && x < area.width as i64
-            && matches!(
-                chart.cells[y as usize][x as usize].1,
-                None | Some(Role::Dim)
-            )
-    };
-    let text = |buf: &mut Buffer, r: i64, c: i64, s: &str| {
-        for (j, ch) in s.chars().enumerate() {
-            let x = c + j as i64;
-            if free(r, x)
-                && let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + r as u16))
-            {
-                cell.set_char(ch).set_style(fg(Role::Dim));
-            }
-        }
-    };
-    // a tick label goes left of the post, else right of it, and only where all of it fits,
-    // so "100%" never shows as "0%"
-    for &(r, post, t) in &chart.ticks {
-        let n = t.chars().count() as i64;
-        if let Some(c) = [post - n - 1, post + 2]
-            .into_iter()
-            .find(|&c| (c..c + n).all(|x| free(r, x)))
-        {
-            text(buf, r, c, t);
-        }
-    }
-    // labels always show, over the columns, so every core stays named
-    for (&(r, c), core) in chart.labels.iter().zip(cores) {
-        for (j, ch) in core.label.chars().enumerate() {
-            let x = c + j as i64;
-            if r >= 0
-                && x >= 0
-                && r < area.height as i64
-                && x < area.width as i64
-                && let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + r as u16))
-            {
-                cell.set_char(ch).set_style(fg(Role::Dim));
-            }
-        }
     }
 }

@@ -10,6 +10,8 @@ pub enum Role {
     Low,
     Mid,
     High,
+    /// series-power (cyan): power, upload, and "▶ replay"
+    Power,
 }
 
 /// `level()` from bin/monitor: under 50 low, 50–79 mid, 80 and up high.
@@ -30,6 +32,7 @@ pub fn fg(role: Role) -> Style {
         Role::Low => Color::Green,
         Role::Mid => Color::Yellow,
         Role::High => Color::Red,
+        Role::Power => Color::Cyan,
     };
     Style::new().fg(c)
 }
