@@ -2,11 +2,10 @@
 
 Not in v1. These build on SPEC.md's recording format and rules.
 
-- [ ] **History terrain** (`tidalrat --terrain`, prototype C): cores × time as a braille landscape, scrubbed with the same `space` `[` `]` keys and fed by `-play <file>`.
 - [ ] **Alert markers in 3D**: a diagnosis rule firing leaves a `▲` marker on the terrain's time axis, like the scrubber tick.
 - [ ] **Throttle hotspot** (`--die`, prototype B): the die floorplan glows by temperature while the thermal rule fires.
 - [ ] **Runaway process column**: the runaway process as a raised LoadColumn over the core grid.
 - [ ] **Compare two windows**: needs the disk store. In 2D it's a split of two scrub windows; in 3D, two terrains side by side.
 - [ ] **Thermal state names**: record mactop under sustained load until `thermal_state` leaves `Nominal`. Replace the `‹STATE›` placeholder in SPEC.md rule 1 and the mockups with the real names.
 - [ ] **Process actions** (2D): kill/renice from the runaway diagnosis, with a y/n confirm.
-- [ ] **Disk store**: history longer than `histLen = 400`, which compare and long terrains both need.
+- [ ] **tidalrat reads the disk store**: `--terrain` over the 24 h summary tier (STORE-SPEC.md).
