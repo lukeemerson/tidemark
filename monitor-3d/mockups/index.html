@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D monitor mockups</title>
+<link rel="stylesheet" href="../shared/tokens.css">
+<style>
+body{margin:0;background:var(--bg-page);color:var(--text);font:14px/1.5 var(--font-sans);padding:32px 16px}
+main{max-width:1100px;margin:0 auto;display:grid;gap:28px}
+h1{font-size:20px;margin:0}
+.lede{color:var(--dim);margin:4px 0 0;max-width:70ch}
+section{background:var(--bg);border:1px solid var(--ansi-black);border-radius:10px;overflow:hidden}
+header{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;padding:14px 18px;border-bottom:1px solid var(--ansi-black)}
+.id{font:600 13px var(--font-mono);color:var(--accent)}
+h2{margin:0;font-size:16px}
+header p{margin:0;color:var(--dim);flex:1 1 320px}
+pre{margin:0;padding:14px 18px;overflow-x:auto;font:12px/1.2 var(--font-mono);font-variant-ligatures:none}
+.n{color:var(--series-net)}.p{color:var(--series-power)}.g{color:var(--series-gpu)}.l{color:var(--level-low)}.m{color:var(--level-mid)}.h{color:var(--level-high)}.d{color:var(--dim)}.b{font-weight:700}
+ul{margin:0;padding:10px 18px 16px 36px;color:var(--dim)}
+li b{color:var(--text);font-weight:600}
+</style></head><body><main>
+<div><h1>3D monitor mockups</h1>
+<p class="lede">Five ways to put the Monitor TUI in 3D. Each sketch is a still frame in the same palette. Evaluation and picks are in <code>../EVALUATION.md</code>.</p></div>
+
+<section><header><span class="id">A</span><h2>VT in the room</h2><p>Ratty's presentation layer: the real draft-03 TUI rendered to a texture on a terminal slab, with 3D objects anchored to cells.</p></header>
+<pre><span class="d">            camera orbits ↻        ▲ spinning die, anchored to header cell (0,1)
+     ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾╲
+    ╱ </span><span class="b">Apple M2 Pro</span><span class="d">  ·  4E + 6P CPU  ·  16-core GPU                      19:47:19 ╲
+   ╱ ┏━</span><span class="b"> cpu </span><span class="d">━━━━━┓ ┏━</span><span class="b"> gpu </span><span class="d">━━━━━┓ ┏━</span><span class="b"> power </span><span class="d">━━━┓ ┏━</span><span class="b"> mem </span><span class="d">━━━━━┓           ╲
+  │  ┃    </span><span class="l b">28%</span><span class="d">     ┃ ┃    </span><span class="g b">2%</span><span class="d">      ┃ ┃  </span><span class="p b">15.9 W</span><span class="d">    ┃ ┃    </span><span class="m b">75%</span><span class="d">     ┃             │
+  │  ┏━</span><span class="b"> cores </span><span class="d">━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   </span><span class="l">▟</span><span class="d"> </span><span class="l">▟</span><span class="d"> </span><span class="m">█</span><span class="d"> </span><span class="l">▟</span><span class="d">  ← 3D columns rise out of   │
+  │  ┃ E1 </span><span class="l">■■■■■</span><span class="d">·····  36%   E2 </span><span class="l">■■■</span><span class="d">······ ┃   </span><span class="l">█</span><span class="d"> </span><span class="l">█</span><span class="d"> </span><span class="m">█</span><span class="d"> </span><span class="l">█</span><span class="d">    the cores panel cells,     │
+  │  ┃ P1 </span><span class="l">■■■■■■</span><span class="d">····  45%   P2 </span><span class="l">■■■■■</span><span class="d">···· ┃   ▔▔▔▔▔▔▔    height = load            │
+  │  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛                                   │
+   ╲ slab can bend (curvature slider) · click a panel → camera flies to it       ╱
+    ╲_________________________________________________________________________╱</span></pre>
+<ul><li><b>Interaction:</b> drag orbits, scroll zooms, click a panel to focus it, <code>w</code> warps the slab, <code>space</code> pauses the replay.</li>
+<li><b>Ratty mechanic:</b> the cell-to-scene mapping, and objects placed by row, col, width, height and depth, like the RGP <code>p</code> verb.</li></ul></section>
+
+<section><header><span class="id">B</span><h2>Silicon floor</h2><p>The M2 Pro as a floorplan board. Each E core, P core, GPU core and memory block is a tile that extrudes with load and glows with temperature.</p></header>
+<pre><span class="d">   ┌──────────────────────── Apple M2 Pro ─────────────────────────┐
+   │  E-cluster 2424 MHz        P-cluster 3504 MHz                 │
+   │  </span><span class="l">▆</span><span class="d"> </span><span class="l">▃</span><span class="d"> </span><span class="l">▂</span><span class="d"> </span><span class="l">▁</span><span class="d">                    </span><span class="l">▃</span><span class="d"> </span><span class="l">▂</span><span class="d"> </span><span class="l">▁</span><span class="d"> </span><span class="m">▇</span><span class="d"> </span><span class="m">▆</span><span class="d"> </span><span class="l">▅</span><span class="d">                        │
+   │  E1 E2 E3 E4                P1 P2 P3 P4 P5 P6                 │
+   │  ┌─ GPU 16 cores ────────────────┐   ┌─ unified memory ─────┐ │
+   │  │ </span><span class="g">▁ ▁ ▁ ▁ ▁ ▁ ▁ ▁ ▂ ▁ ▁ ▁ ▁ ▁ ▁ ▁</span><span class="d"> │   │ </span><span class="m">████████████████</span><span class="d">···· │ │
+   │  └───────────────────────────────┘   └──────────────────────┘ │
+   └─ tilt: 35° isometric · temp tints the board </span><span class="m">66°</span><span class="d"> ───────────────────┘
+      hover a block → TUI tooltip:  ┏━ P4 ━━━━━━┓
+                                    ┃ 68%  3504 MHz ┃</span></pre>
+<ul><li><b>Reads as:</b> where on the chip the work is happening, which a flat list of cores can't show.</li>
+<li><b>Honesty note:</b> the layout is a schematic, not the real die photo.</li></ul></section>
+
+<section><header><span class="id">C</span><h2>History terrain</h2><p>The braille graphs turned into a landscape: cores run across, the last 90 seconds run back into depth, and height is load.</p></header>
+<pre><span class="d">                                      ← now          90 s ago →
+          P6 </span><span class="l">▁▂▂▃</span><span class="m">▅▆</span><span class="l">▃▂▁▁▁▂▂▁</span><span class="d">
+        P5 </span><span class="l">▁▂▃▃▂▂▁▁▁</span><span class="m">▆</span><span class="h">█</span><span class="m">▅</span><span class="l">▂▁</span><span class="d">             ridge lines per core, level-coloured
+      P4 </span><span class="l">▂▃</span><span class="m">▅▆▇▆</span><span class="l">▃▂▂▃▃▂▁▁</span><span class="d">               the front ridge is the current sample
+    ...                                   scrub bar:  ◀ ▮▮▮▮▮▮▮▮▯▯▯▯ ▶  </span><span class="b">t−34s</span><span class="d">
+  E1 </span><span class="l">▃▄▃▃▂▂▃▃▂▂▂▃▃▂</span><span class="d">
+  ────────────────────────── floor grid in dim, 10 s per line</span></pre>
+<ul><li><b>Interaction:</b> orbit, scrub the time cursor, click a ridge to isolate that core, toggle cpu / gpu / power layers.</li></ul></section>
+
+<section><header><span class="id">D</span><h2>Panel constellation</h2><p>Every Box panel floats as its own slab on an arc around the camera. Panels lean toward you as their load rises.</p></header>
+<pre><span class="d">      ┏━ cpu ━━┓        ┏━ gpu ━━┓        ┏━ power ━┓
+        ╲ tilt 12°      │ flat │           ╱ tilt 20°
+   ┏━ cores ━━━━┓                         ┏━ memory ━━┓
+                      ⊙ camera
+   ┏━ processes ━━━━━━━━━━━━┓      ┏━ cloudflare ━━┓</span></pre>
+<ul><li><b>Risk:</b> it's a dashboard spread out in space. Depth adds travel time without adding information.</li></ul></section>
+
+<section><header><span class="id">E</span><h2>Terminal-native 3D</h2><p>No browser. A real TUI that renders a rotating 3D core bar chart in braille inside the heavy frame, and uses Ratty's graphics protocol when it's running inside Ratty.</p></header>
+<pre><span class="d">┏━</span><span class="b"> cores · 3D </span><span class="d">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  </span><span class="l b">28%</span><span class="d"> ━┓
+┃            </span><span class="m">⣿⣿</span><span class="d">                                                                          ┃
+┃       </span><span class="l">⣀⣀</span><span class="d">  </span><span class="m">⣿⣿</span><span class="d">  </span><span class="m">⣤⣤</span><span class="d">        braille 2×4 dots per cell = 2× horizontal, 4× vertical detail       ┃
+┃  </span><span class="l">⣀⣀</span><span class="d">  </span><span class="l">⣿⣿</span><span class="d">  </span><span class="m">⣿⣿</span><span class="d">  </span><span class="m">⣿⣿</span><span class="d">  </span><span class="l">⣤⣤</span><span class="d">   projected wireframe + filled columns, z-sorted                ┃
+┃ ⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉  floor in dim                                                        ┃
+┃ ←/→ rotate · ↑/↓ tilt · space pause · r ratty mode (RGP) · q quit                             ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛</span></pre>
+<ul><li><b>Reads as:</b> the version that could ship. It runs in Alacritty today, and in Ratty it can hand the columns to real 3D.</li></ul></section>
+</main></body></html>

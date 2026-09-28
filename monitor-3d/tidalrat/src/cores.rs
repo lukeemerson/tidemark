@@ -1,0 +1,281 @@
+//! `tidalrat --cores`: per-core load as a rotating 3D bar chart inside a Monitor TUI heavy frame.
+
+use crate::Opts;
+use crate::ratty::{self, Columns};
+use crate::scene::{self, Camera};
+use crate::source::{Meta, Sample, Source};
+use crate::theme::{Role, bold, fg, level};
+use crate::ui;
+use ratatui::{
+    DefaultTerminal, Frame,
+    buffer::Buffer,
+    crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
+    layout::Rect,
+    text::{Line, Span},
+    widgets::{Paragraph, Widget},
+};
+use std::io;
+use std::time::{Duration, Instant};
+
+const FRAME: Duration = Duration::from_millis(50);
+const MIN_W: u16 = 60;
+const MIN_H: u16 = 20;
+
+struct App {
+    source: Source,
+    meta: Option<Meta>,
+    sample: Option<Sample>,
+    loads: Vec<f64>,
+    yaw: f64,
+    pitch: f64,
+    spin: bool,
+    paused: bool,
+    ratty_found: bool,
+    columns: Columns,
+    /// live mactop exited; we fell back to the recording
+    mactop_stopped: bool,
+}
+
+pub fn run(opts: &Opts) -> io::Result<()> {
+    let source = crate::source::open(opts.replay, opts.play.as_deref())?;
+    let meta = if source.is_replay() {
+        // --play learns the machine from its samples
+        opts.play.is_none().then(|| crate::source::recording().0)
+    } else {
+        crate::source::static_meta()
+    };
+    let mut terminal = ratatui::try_init()?;
+    let ratty_found = ratty::detect();
+    // wipe any echo of the probe in terminals that don't swallow APC (terminal.clear() would
+    // query the cursor position, which not every terminal answers); a failure here must not
+    // skip the restore below
+    let _ = io::Write::write_all(&mut io::stdout(), b"\x1b[2J");
+    let n = meta.as_ref().map_or(10, |m| m.e + m.p);
+    let mut app = App {
+        source,
+        meta,
+        sample: None,
+        loads: vec![0.0; n],
+        yaw: 0.6,
+        pitch: 0.45,
+        spin: true,
+        paused: false,
+        ratty_found,
+        columns: Columns::new(n),
+        mactop_stopped: false,
+    };
+    let result = app
+        .columns
+        .set(opts.ratty || ratty_found)
+        .and_then(|_| app.run(&mut terminal, opts.frames));
+    let _ = app.columns.set(false);
+    ratatui::restore();
+    result
+}
+
+impl App {
+    fn run(&mut self, terminal: &mut DefaultTerminal, frames: Option<u64>) -> io::Result<()> {
+        let (mut last, mut drawn) = (Instant::now(), 0u64);
+        loop {
+            let dt = last.elapsed().as_secs_f64();
+            last = Instant::now();
+            for (s, m) in self.source.poll() {
+                if let Some(m) = m
+                    && self.meta.as_ref() != Some(&m)
+                {
+                    self.loads.resize(m.e + m.p, 0.0);
+                    let on = self.columns.on;
+                    self.columns.set(false)?;
+                    self.columns = Columns::new(m.e + m.p);
+                    self.columns.set(on)?;
+                    self.meta = Some(m);
+                }
+                if !self.paused {
+                    self.sample = Some(s);
+                }
+            }
+            if self.source.ended() {
+                // mactop exited: say so, and keep the screen alive on the recording
+                self.source = Source::replay();
+                self.mactop_stopped = true;
+                let m = crate::source::recording().0;
+                if self.meta.as_ref() != Some(&m) {
+                    self.loads.resize(m.e + m.p, 0.0);
+                    let on = self.columns.on;
+                    self.columns.set(false)?;
+                    self.columns = Columns::new(m.e + m.p);
+                    self.columns.set(on)?;
+                    self.meta = Some(m);
+                }
+            }
+            // heights ease toward the newest sample (~0.25 s time constant)
+            let a = 1.0 - (-dt / 0.25).exp();
+            if let Some(s) = &self.sample {
+                for (l, t) in self.loads.iter_mut().zip(&s.cores) {
+                    *l += (t - *l) * a;
+                }
+            }
+            if self.spin && !self.paused {
+                self.yaw += 0.35 * dt;
+            }
+            terminal.draw(|f| self.draw(f))?;
+            drawn += 1;
+            if frames.is_some_and(|n| drawn >= n) {
+                return Ok(());
+            }
+            let deadline = last + FRAME;
+            while let Some(left) = deadline.checked_duration_since(Instant::now()) {
+                if !event::poll(left)? {
+                    break;
+                }
+                if let Event::Key(k) = event::read()? {
+                    if k.kind != KeyEventKind::Press {
+                        continue;
+                    }
+                    match k.code {
+                        KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                        KeyCode::Char('c') if k.modifiers.contains(KeyModifiers::CONTROL) => {
+                            return Ok(());
+                        }
+                        KeyCode::Left => self.yaw -= 0.15,
+                        KeyCode::Right => self.yaw += 0.15,
+                        KeyCode::Up => self.pitch = (self.pitch + 0.08).min(1.3),
+                        KeyCode::Down => self.pitch = (self.pitch - 0.08).max(0.1),
+                        KeyCode::Char(' ') => self.paused = !self.paused,
+                        KeyCode::Char('a') => self.spin = !self.spin,
+                        KeyCode::Char('r') => self.columns.set(!self.columns.on)?,
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    fn draw(&mut self, f: &mut Frame) {
+        let full = f.area();
+        if full.width < MIN_W || full.height < MIN_H {
+            self.columns.hide_all();
+            let area = full;
+            let msg = format!("resize to at least {MIN_W}×{MIN_H}");
+            Paragraph::new(Span::styled(msg, fg(Role::Dim)))
+                .centered()
+                .render(
+                    Rect {
+                        y: area.height / 2,
+                        height: 1,
+                        ..area
+                    },
+                    f.buffer_mut(),
+                );
+            return;
+        }
+        // one blank column each side (design-system cell-xpad)
+        let (x0, w, h) = (1, full.width - 2, full.height);
+        self.header(f.buffer_mut(), Rect::new(x0, 0, w, 1));
+
+        let right = match &self.sample {
+            Some(s) => Span::styled(format!(" {:.0}% ", s.cpu), bold(level(s.cpu))),
+            None => Span::styled(" — ", fg(Role::Dim)),
+        };
+        let block = ui::frame("cores · 3d", right);
+        let frame_area = Rect::new(x0, 1, w, h - 2);
+        let inner = block.inner(frame_area);
+        block.render(frame_area, f.buffer_mut());
+        let chart_area = Rect {
+            x: inner.x + 1,
+            width: inner.width.saturating_sub(2),
+            ..inner
+        };
+
+        let cores = match &self.meta {
+            Some(m) => scene::core_layout(m.e, m.p),
+            None => scene::core_layout(0, self.loads.len()),
+        };
+        let cam = Camera::new(self.yaw, self.pitch, &cores);
+        let (cw, ch) = (chart_area.width as usize, chart_area.height as usize);
+        let chart = scene::render(cw, ch, &cam, &cores, &self.loads, !self.columns.on);
+        let labels: Vec<String> = cores.iter().map(|c| c.label.clone()).collect();
+        ui::draw_chart(f.buffer_mut(), chart_area, &chart, &labels);
+
+        let anchors: Vec<(u16, u16)> = chart
+            .labels
+            .iter()
+            .map(|&(r, c)| {
+                (
+                    (chart_area.y as i64 + r).max(0) as u16,
+                    (chart_area.x as i64 + c).max(0) as u16,
+                )
+            })
+            .collect();
+        let loads = self.loads.clone();
+        self.columns
+            .render(f, chart_area, &anchors, &loads, chart_area.height / 2);
+
+        self.legend(f.buffer_mut(), Rect::new(x0, h - 1, w, 1));
+    }
+
+    fn header(&self, buf: &mut Buffer, area: Rect) {
+        let mut left = vec![];
+        if let Some(m) = &self.meta {
+            let gpu = m.gpu_cores.map_or("?".into(), |g| g.to_string());
+            left.push(Span::styled(m.name.clone(), bold(Role::Text)));
+            left.push(Span::styled(
+                format!("  ·  {}E + {}P CPU  ·  {gpu}-core GPU", m.e, m.p),
+                fg(Role::Dim),
+            ));
+        }
+        let right = match &self.sample {
+            None => Line::from(Span::styled("● starting mactop…", fg(Role::Mid))),
+            Some(s) => {
+                let mut spans = vec![];
+                if self.mactop_stopped {
+                    spans.push(Span::styled("mactop stopped  ", fg(Role::Mid)));
+                }
+                let mut t = String::new();
+                if self.paused {
+                    t.push_str("paused  ");
+                }
+                if self.source.is_replay() {
+                    t.push_str("replay  ");
+                }
+                t.push_str(&s.clock);
+                spans.push(Span::styled(t, fg(Role::Dim)));
+                Line::from(spans)
+            }
+        };
+        // the left side gets what the right leaves, minus a one-cell gap, so they never touch
+        let room = area.width.saturating_sub(right.width() as u16 + 1);
+        Line::from(left).render(
+            Rect {
+                width: room,
+                ..area
+            },
+            buf,
+        );
+        right.right_aligned().render(area, buf);
+    }
+
+    fn legend(&self, buf: &mut Buffer, area: Rect) {
+        let state = if self.columns.on {
+            "ratty: on"
+        } else if self.ratty_found {
+            "ratty: off"
+        } else {
+            "ratty: off (not detected)"
+        };
+        let keys = "←/→ rotate · ↑/↓ tilt · space pause · a auto-spin · r ratty · q quit";
+        let room = (area.width as usize).saturating_sub(state.chars().count() + 3);
+        let keys: String = if keys.chars().count() > room {
+            keys.chars()
+                .take(room.saturating_sub(1))
+                .chain(['…'])
+                .collect()
+        } else {
+            keys.into()
+        };
+        Line::from(Span::styled(format!(" {keys}"), fg(Role::Dim))).render(area, buf);
+        Line::from(Span::styled(format!("{state} "), fg(Role::Dim)))
+            .right_aligned()
+            .render(area, buf);
+    }
+}

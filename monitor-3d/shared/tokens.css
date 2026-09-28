@@ -1,0 +1,45 @@
+/* generated from design-system/tokens.json */
+:root{
+  --bg:#1d1d1d;
+  --bg-page:#161616;
+  --text:#d6cbbd;
+  --text-bright:#ede3d6;
+  --text-faint:#a59b91;
+  --selection:#46423d;
+  --search-match:#e5c7a9;
+  --ansi-black:#302e2b;
+  --ansi-red:#f06459;
+  --ansi-green:#a3be8c;
+  --ansi-yellow:#c898ca;
+  --ansi-blue:#81b0e0;
+  --ansi-magenta:#f4b83f;
+  --ansi-cyan:#65b9ce;
+  --ansi-white:#bdb3a7;
+  --ansi-bright-black:#9b9288;
+  --ansi-bright-red:#ff897d;
+  --ansi-bright-green:#bcd8a5;
+  --ansi-bright-yellow:#e2b1e4;
+  --ansi-bright-blue:#9acafb;
+  --ansi-bright-magenta:#ffda62;
+  --ansi-bright-cyan:#7fd3e8;
+  --ansi-bright-white:#ede3d6;
+  --dim:#9b9288;
+  --level-low:#a3be8c;
+  --level-mid:#c898ca;
+  --level-high:#f06459;
+  --series-gpu:#81b0e0;
+  --series-power:#65b9ce;
+  --series-net:#f4b83f;
+  --accent:#c898ca;
+  --window-pad-x:8px;
+  --window-pad-y:6px;
+  --term-pad-y:14px;
+  --term-pad-x:10px;
+  --card-pad-x:18px;
+  --page-pad-y:32px;
+  --radius-term:0;
+  --radius-seg:6px;
+  --radius-card:10px;
+  --font-mono:"JetBrainsMonoNL NFM", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-sans:-apple-system, system-ui, sans-serif;
+}
