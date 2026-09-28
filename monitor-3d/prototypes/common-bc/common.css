@@ -1,0 +1,9 @@
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg)}
+canvas{display:block}
+.hud{position:fixed;pointer-events:none;overflow:visible}
+.hud.plain{padding:0;background:transparent}
+#status{left:0;bottom:0}
+#title{left:0;top:0}
+#legend{right:12px;top:12px}
+#tip{display:none}
+.hud.lbl{transform:translate(-50%,-50%);padding:0 4px;background:var(--bg)}

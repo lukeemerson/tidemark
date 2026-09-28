@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VT in the room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<link rel="stylesheet" href="../../../design-system/components/bundle.css">
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg)}
+canvas.gl{display:block;width:100vw;height:100vh}
+.hud{position:fixed;margin:0;padding:0;background:transparent;overflow:visible}
+#status{left:16px;bottom:12px}
+#warp{right:16px;top:12px;cursor:pointer;user-select:none}
+#legend{right:16px;bottom:12px;display:none;background:var(--bg)}
+#tip{pointer-events:none;display:none;background:var(--bg)}
+</style></head><body>
+<pre id="tip" class="hud"></pre>
+<pre id="status" class="hud"></pre>
+<pre id="warp" class="hud" title="w: warp the slab"></pre>
+<pre id="legend" class="hud"></pre>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../../shared/samples.js"></script>
+<script src="../../shared/theme.js"></script>
+<script src="../../shared/replay.js"></script>
+<script src="../../../design-system/components/bundle.js"></script>
+<script src="app.js"></script>
+</body></html>

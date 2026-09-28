@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitor 3D</title>
+<link rel="stylesheet" href="shared/tokens.css">
+<style>
+body{margin:0;background:var(--bg-page);color:var(--text);font:14px/1.5 var(--font-sans);padding:32px 16px}
+main{max-width:980px;margin:0 auto;display:grid;gap:24px}
+h1{font-size:20px;margin:0}
+p{margin:0;color:var(--dim);max-width:70ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px}
+a.card{display:grid;gap:6px;padding:14px 18px;background:var(--bg);border:1px solid var(--ansi-black);border-radius:10px;color:inherit;text-decoration:none}
+a.card:hover,a.card:focus-visible{border-color:var(--dim);outline:none}
+.id{font:600 13px var(--font-mono);color:var(--accent)}
+h2{margin:0;font-size:16px}
+code{font:12px var(--font-mono);color:var(--dim)}
+.docs{display:flex;flex-wrap:wrap;gap:8px 18px;font:12px var(--font-mono)}
+.docs a{color:var(--dim)}
+</style></head><body><main>
+<div><h1>Monitor 3D</h1>
+<p>Four 3D prototypes of the Monitor TUI. All of them replay the same 90 recorded mactop samples. Serve this folder's parent over HTTP, or open the files directly.</p></div>
+<div class="docs"><a href="REVIEW.md">REVIEW.md</a><a href="PLAN.md">PLAN.md</a><a href="mockups/index.html">mockups</a><a href="EVALUATION.md">EVALUATION.md</a><a href="COMPONENTS.md">COMPONENTS.md</a><a href="RESULTS.md">RESULTS.md</a></div>
+<div class="grid">
+<a class="card" href="prototypes/a-vt-room/index.html"><span class="id">A</span><h2>VT in the room</h2><p>The real draft-03 TUI on a bendable terminal slab, with 3D core columns and a die anchored to cells, Ratty-style.</p></a>
+<a class="card" href="prototypes/b-silicon-floor/index.html"><span class="id">B</span><h2>Silicon floor</h2><p>A schematic M2 Pro floorplan whose E, P and GPU cores extrude with load and glow with temperature.</p></a>
+<a class="card" href="prototypes/c-history-terrain/index.html"><span class="id">C</span><h2>History terrain</h2><p>Per-core load over the last 90 seconds as a landscape you can orbit and scrub.</p></a>
+<div class="card" style="display:grid;gap:6px;padding:14px 18px;background:var(--bg);border:1px solid var(--ansi-black);border-radius:10px"><span class="id">E</span><h2>Terminal-native 3D</h2><p>Runs in your terminal. Braille 3D core bars, and real 3D objects when it's running inside Ratty.</p><code>python3 monitor-3d/prototypes/e-terminal-3d/monitor3d.py</code></div>
+</div>
+</main></body></html>
