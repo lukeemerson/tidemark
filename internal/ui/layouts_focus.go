@@ -48,7 +48,7 @@ func (m Model) computeLayout(rows, w int) []string {
 // memory (dashed light): usage, pressure, swap and load, then who holds the memory.
 
 func (m Model) pressure() string {
-	if !m.have {
+	if !m.sysOK() {
 		return dim.Render("—")
 	}
 	switch m.sys.Pressure {
@@ -70,12 +70,12 @@ func (m Model) memoryLayout(rows, w int) []string {
 	free := float64(m.sys.FreePct)
 	usedCol := level(100 - free)
 	load := dim.Render("—")
-	if m.have {
+	if m.sysOK() {
 		load = fmt.Sprintf("%.2f  %.2f  %.2f", m.sys.Load[0], m.sys.Load[1], m.sys.Load[2])
 	}
 	readout := []string{
 		kv("pressure", m.pressure()),
-		kv("available", num(m.have, "%.0f%%", free)),
+		kv("available", num(m.sysOK(), "%.0f%%", free)),
 		" " + bar(free, rw-6, &usedCol),
 		kv("used", num(m.have, "%.1f", mem.Used/1073741824)+dim.Render(" / "+gb(m.memTotal)+" GB")),
 		kv("swap", num(m.have, "%.2f", mem.SwapUsed/1073741824)+dim.Render(" / "+gb(mem.SwapTotal)+" GB")),
@@ -97,7 +97,7 @@ func (m Model) memoryLayout(rows, w int) []string {
 	out = append(out, hjoin(
 		dashed.box("swap", num(m.have, "%.2f GB", mem.SwapUsed/1073741824), hw, sh,
 			axisGraph(m.hswap, hw-4, sh-2, swapTop, gb(swapTop)+"G", cMem)...),
-		dashed.box("load", num(m.have, "%.2f", m.sys.Load[0]), w-hw-1, sh,
+		dashed.box("load", num(m.sysOK(), "%.2f", m.sys.Load[0]), w-hw-1, sh,
 			axisGraph(m.hload, w-hw-5, sh-2, loadTop, fmt.Sprintf("%.0f", loadTop), cCPU)...),
 	)...)
 

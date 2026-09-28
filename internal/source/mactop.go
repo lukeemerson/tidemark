@@ -7,14 +7,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 // Sample is one mactop --headless sample, limited to the fields monitor draws.
 type Sample struct {
+	Timestamp    time.Time `json:"timestamp"`
 	CPUUsage     float64   `json:"cpu_usage"`
 	GPUUsage     float64   `json:"gpu_usage"`
 	CoreUsages   []float64 `json:"core_usages"`
@@ -103,14 +106,23 @@ type Collector struct {
 	done    chan struct{}
 }
 
-// Mactop starts mactop --headless at the given interval.
-func Mactop(intervalMs int) (*Collector, error) {
+// Mactop starts mactop --headless at the given interval. With rec set, mactop's raw output is
+// also copied to that file: the same format Play reads back.
+func Mactop(intervalMs int, rec string) (*Collector, error) {
 	cmd := exec.Command("mactop", "--headless", "--count", "0", "-i", strconv.Itoa(intervalMs))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
+	}
+	var in io.Reader = stdout
+	var recf *os.File
+	if rec != "" {
+		if recf, err = os.Create(rec); err != nil {
+			return nil, err
+		}
+		in = io.TeeReader(stdout, recf)
 	}
 	if err := cmd.Start(); err != nil {
 		return nil, err
@@ -119,7 +131,10 @@ func Mactop(intervalMs int) (*Collector, error) {
 	c := &Collector{Samples: ch, cmd: cmd, done: make(chan struct{})}
 	go func() {
 		defer close(ch) // after err is set, so a closed Samples always has its Err ready
-		derr := Decode(stdout, ch)
+		derr := Decode(in, ch)
+		if recf != nil {
+			recf.Close()
+		}
 		if derr != nil {
 			cmd.Process.Kill() // a stuck mactop would block Wait on a full pipe
 		}

@@ -51,7 +51,24 @@ type Model struct {
 	hdr, hdw          []float64 // disk bytes/s
 	hdram             []float64 // DRAM read+write GB/s
 	cfdl, cful, cflat []float64
+
+	// history for scrubbing: one entry per sample, aligned with the h* series above
+	past   []source.Sample
+	psys   []source.Sys
+	diag   []diagState // what the diagnosis line showed at each sample
+	dg     diagnoser
+	seq    int   // samples received; past[len-1] is sample seq-1
+	paused bool  // space: the screen holds at cursor while samples keep arriving
+	cursor int   // the sample on screen while paused, as a seq index
+	alerts []int // seq indices where a diagnosis rule started firing
+
+	replay *replayInfo // set by Replay for -play; nil when live
+	noSys  bool        // replay: sysctl readings (load, pressure) aren't in the recording
+	ended  bool        // replay: the recording has finished
 }
+
+// sysOK is true when load and memory-pressure readings exist for the sample on screen.
+func (m Model) sysOK() bool { return m.have && !m.noSys }
 
 // New builds the model from what is known instantly (sysctl, saved cloudy runs);
 // mactop's samples arrive on samples later. layout and palette name the starting choices
@@ -166,6 +183,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.palette = map[string]string{"ansi": "tidemark", "tidemark": "ansi"}[m.palette]
 			setPalette(m.palette, m.dark)
 			return m, m.saveCmd()
+		case "space":
+			if m.paused || !m.have {
+				m.paused = false
+			} else {
+				m.paused, m.cursor = true, m.seq-1
+			}
+		case "[", "]", "{", "}":
+			if m.paused {
+				m.moveCursor(map[string]int{"[": -1, "]": 1, "{": -30, "}": 30}[msg.String()])
+			}
 		case "r":
 			if m.cloudy != nil {
 				break
@@ -195,7 +222,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.hmem = push(m.hmem, m.memPct())
 		m.htc = push(m.htc, m.s.SoC.CPUTemp)
 		m.htg = push(m.htg, m.s.SoC.GPUTemp)
-		m.sys = source.ReadSys()
+		if !m.noSys {
+			m.sys = source.ReadSys()
+		}
 		m.hload = push(m.hload, m.sys.Load[0])
 		m.hswap = push(m.hswap, m.s.Memory.SwapUsed)
 		m.hnin = push(m.hnin, m.s.NetDisk.InBytes)
@@ -203,8 +232,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.hdr = push(m.hdr, m.s.NetDisk.ReadKBytes*1024)
 		m.hdw = push(m.hdw, m.s.NetDisk.WriteKB*1024)
 		m.hdram = push(m.hdram, m.s.SoC.DRAMRead+m.s.SoC.DRAMWrite)
+		var d diagState
+		var fired bool
+		m.dg, d, fired = m.dg.step(m.s, m.sys, !m.noSys, m.names.Name)
+		m.past = append(m.past, m.s)
+		m.psys = append(m.psys, m.sys)
+		m.diag = append(m.diag, d)
+		if len(m.past) > histLen {
+			m.past, m.psys, m.diag = m.past[1:], m.psys[1:], m.diag[1:]
+		}
+		if fired {
+			m.alerts = append(m.alerts, m.seq)
+		}
+		m.seq++
+		for len(m.alerts) > 0 && m.alerts[0] < m.seq-len(m.past) {
+			m.alerts = m.alerts[1:]
+		}
+		if m.paused {
+			m.moveCursor(0) // the cursor's sample may have aged out of the buffer
+		}
 		return m, m.wait
 	case doneMsg:
+		if m.replay != nil { // stay on the last frame so the recording can be scrubbed
+			m.ended = true
+			return m, nil
+		}
 		return m, tea.Quit
 	}
 	return m, nil
@@ -237,11 +289,28 @@ func (m Model) layout(rows, w int) []string {
 	if w < 8 || rows < 1 {
 		return nil
 	}
+	m = m.at()
+	var d diagState
+	if len(m.diag) > 0 {
+		d = m.diag[len(m.diag)-1]
+	}
+	withDiag := d.rule != ruleNone && rows > 2
+	if withDiag {
+		rows-- // the diagnosis line takes a row under the header
+	}
 	l := layouts[m.lay]
 	if !l.fits(m, rows, w) {
 		m.fallback, l = true, layouts[0]
 	}
-	return l.draw(m, rows, w)
+	out := l.draw(m, rows, w)
+	if !withDiag || len(out) == 0 {
+		return out
+	}
+	text := d.text
+	if lipgloss.Width(text) > w {
+		text = d.short
+	}
+	return append([]string{out[0], pad(d.style().Render(text), w)}, out[1:]...)
 }
 
 // tilesLayout fits the screen to rows × w: panels drop out, narrowest first, rather than overflow.
@@ -325,6 +394,9 @@ func (m Model) cfLabel() string {
 }
 
 func (m Model) head(w int) string {
+	if m.scrubbing() {
+		return m.scrubHead(w)
+	}
 	l := title.Render(m.name) + dim.Render(fmt.Sprintf("  ·  %dE + %dP CPU  ·  %s-core GPU", m.ne, m.np, m.ngc()))
 	r := mid.Render("● starting mactop…")
 	if m.have {
@@ -333,13 +405,7 @@ func (m Model) head(w int) string {
 			r = dim.Render("battery "+b+"   ") + r
 		}
 	}
-	ind := fmt.Sprintf("%s %d/%d", layouts[m.lay].name, m.lay+1, len(layouts))
-	if m.fallback {
-		ind = layouts[m.lay].name + " → tiles"
-	}
-	if m.palette != "ansi" {
-		ind += " · " + m.palette
-	}
+	ind := m.indicator()
 	if lipgloss.Width(l)+lipgloss.Width(r)+lipgloss.Width(ind)+4 <= w {
 		r = dim.Render(ind+"   ") + r
 	}
@@ -347,6 +413,18 @@ func (m Model) head(w int) string {
 		l = title.Render(m.name) // drop the core counts before the clock
 	}
 	return pad(spread(l, r, w), w)
+}
+
+// indicator names the layout (and a non-default palette): "sidebar 2/10", "sidebar → tiles".
+func (m Model) indicator() string {
+	ind := fmt.Sprintf("%s %d/%d", layouts[m.lay].name, m.lay+1, len(layouts))
+	if m.fallback {
+		ind = layouts[m.lay].name + " → tiles"
+	}
+	if m.palette != "ansi" {
+		ind += " · " + m.palette
+	}
+	return ind
 }
 
 type stat struct {

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // testdata/mactop.raw is 90s of real mactop --headless -i 1000 output.
@@ -80,4 +81,48 @@ func TestReadSys(t *testing.T) {
 		t.Errorf("free %% = %d", s.FreePct)
 	}
 	t.Logf("%+v", s)
+}
+
+// -rec copies mactop's stream byte for byte, and Play reads it back at the recorded spacing.
+func TestRecordThenPlay(t *testing.T) {
+	dir := t.TempDir()
+	raw, _ := filepath.Abs("testdata/mactop.raw")
+	fake := filepath.Join(dir, "mactop")
+	os.WriteFile(fake, []byte("#!/bin/sh\ncat '"+raw+"'\n"), 0o755)
+	t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
+	rec := filepath.Join(dir, "rec.raw")
+	c, err := Mactop(1000, rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for range c.Samples {
+		n++
+	}
+	want, _ := os.ReadFile(raw)
+	got, _ := os.ReadFile(rec)
+	if n != 90 || string(got) != string(want) {
+		t.Fatalf("recorded %d samples, %d of %d bytes match", n, len(got), len(want))
+	}
+	var waits []time.Duration
+	ch, total, recorded, err := Play(rec, func(d time.Duration) { waits = append(waits, d) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	played := 0
+	for s := range ch {
+		if s.Timestamp.IsZero() {
+			t.Fatalf("sample %d has no timestamp", played)
+		}
+		played++
+	}
+	if total != 90 || played != 90 || len(waits) != 89 || recorded.Format("2006-01-02 15:04") != "2026-09-26 19:44" {
+		t.Errorf("total=%d played=%d waits=%d recorded=%v", total, played, len(waits), recorded)
+	}
+	for _, d := range waits {
+		if d <= 0 || d > 10*time.Second {
+			t.Errorf("odd gap %v between recorded samples", d)
+			break
+		}
+	}
 }

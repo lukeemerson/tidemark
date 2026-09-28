@@ -60,9 +60,18 @@ the cloudflare panels still show any runs it saved earlier.
 | `l` / `L` | next / previous layout (remembered in `~/.config/tidemark/config.json`) |
 | `c` | switch palette: your terminal's 16 colours (default) or the built-in `tidemark` palette |
 | `r` | run a Cloudflare speed test (~30 s) and reload the cloudflare panels |
+| `space` | pause (the screen holds; samples keep arriving) / back to live |
+| `[` `]` · `{` `}` | while paused: step one sample · jump 30, through the last 400 samples |
 | `q` | quit |
 
-`tidemark -i 500` samples every 500 ms (default 1000).
+`tidemark -i 500` samples every 500 ms (default 1000). `tidemark -rec session.raw` also records
+mactop's samples to a file; `tidemark -play session.raw` replays one at its recorded pace (scrub
+it the same way; load and memory pressure aren't recorded, so they show `—`).
+
+While something looks wrong, a line under the header says so, highest priority first:
+`▲ throttling` (thermal state isn't Nominal), `▲ swapping` (swap up over 256 MB in 10 samples
+under memory pressure) or `▲ runaway` (the top process above one full core for 10 samples). It
+clears after 5 quiet samples, and each firing leaves a `▲` on the paused scrubber.
 
 ## Layouts
 
