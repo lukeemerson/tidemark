@@ -12,11 +12,13 @@ Where tidemark stands, as of 2026-09-28. Everything is on `main`; the `3d` branc
 - **Diagnosis line**: throttle > swap > runaway (≥100% CPU for 10 samples); it follows the scrub cursor.
 - **Disk store** (STORE-SPEC.md): 24 h on disk, with a raw hour at full detail plus 10 s summaries; `z` cycles the span 400 / 1h / 24h, with gaps and stored alert ticks.
 - **Compare** (COMPARE-SPEC.md): `m` marks B. B draws as a dim ghost on braille graphs, auto-scaled to the larger of A and B, and values show the difference from B.
+- **Settings** (SETTINGS-SPEC.md): `o` opens an overlay for layout, palette, interval and store. Changes apply live and save on close.
 - Release packaging: `scripts/release.sh`, MIT.
 
 ### 3D: tidalrat (Rust, `monitor-3d/tidalrat/`)
-- `--cores`: a live 3D core chart in braille, a fixed size spinning in place; real cubes inside Ratty.
+- `--cores`: a live 3D core chart in braille, a fixed size spinning in place.
 - `--terrain`: per-core history as a braille landscape. Same scrub keys as 2D; `--play <file>` reads the same recordings.
+- Terrain alert markers (TERRAIN-ALERTS-SPEC.md): tidalrat runs the three diagnosis rules, `▲` beside the floor, ticks and a count in the header.
 - 18 tests pass.
 
 ### 3D: prototypes (`monitor-3d/prototypes/`)
@@ -38,12 +40,10 @@ Proposed, not yet decided with Luke:
 
 | area | item | source |
 | --- | --- | --- |
-| 2D | settings menu: specced, build-2d is building it | SETTINGS-SPEC.md |
 | 2D | "what changed?" feed; processes grouped by project | README |
 | 2D | process actions (kill/renice with a y/n confirm) | TODO-future |
-| 3D | terrain alert markers: specced, build-3d is building it | TERRAIN-ALERTS-SPEC.md |
 | 3D | `--die` chip floorplan, then the throttle hotspot on it | PLAN row 3 |
-| 3D | `--web`, `--ratty`, `--wall` | PLAN rows 4, 5, 7 |
+| 3D | `--web`, `--wall` | PLAN rows 4, 7 |
 | both | in-process sampling (vendored mactop IOReport), dropping the ~1–1.8 s startup | PLAN.md |
 | both | Rust rewrite: tidalrat is the pilot | monitor-3d/PLAN.md |
 | repo | reorganize into 2d/3d × prod/dev | Luke, earlier |
