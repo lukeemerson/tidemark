@@ -32,6 +32,10 @@ struct App {
     source: Source,
     meta: Option<Meta>,
     hist: VecDeque<Sample>,
+    /// when each sample in `hist` arrived, in seconds since `clock`; ages come from these,
+    /// since recorded timestamps jump when the recording loops or replaces live data
+    arrived: VecDeque<f64>,
+    clock: Instant,
     /// samples back from the newest; 0 = live edge
     offset: usize,
     paused: bool,
@@ -52,6 +56,8 @@ pub fn run(opts: &Opts) -> io::Result<()> {
         source,
         meta,
         hist: VecDeque::new(),
+        arrived: VecDeque::new(),
+        clock: Instant::now(),
         offset: 0,
         paused: false,
         yaw: 0.6,
@@ -78,10 +84,14 @@ impl App {
                 self.push(s);
             }
             if self.source.ended() {
-                // mactop exited: say so, and keep the screen alive on the recording
+                // mactop exited: say so, and keep the screen alive on the recording, starting
+                // a fresh history so live rows don't sit under the recording's core layout
                 self.source = Source::replay();
                 self.mactop_stopped = true;
                 self.meta = Some(source::recording().0);
+                self.hist.clear();
+                self.arrived.clear();
+                self.offset = 0;
             }
             if self.spin {
                 self.yaw += 0.35 * dt;
@@ -129,12 +139,19 @@ impl App {
 
     /// Add a sample. While paused the cursor stays on the sample it was on.
     fn push(&mut self, s: Sample) {
+        let at = self.clock.elapsed().as_secs_f64();
+        self.push_at(s, at);
+    }
+
+    fn push_at(&mut self, s: Sample, at: f64) {
         self.hist.push_back(s);
+        self.arrived.push_back(at);
         if self.paused {
             self.offset += 1;
         }
         if self.hist.len() > HISTORY {
             self.hist.pop_front();
+            self.arrived.pop_front();
         }
         self.offset = self.offset.min(self.hist.len().saturating_sub(1));
     }
@@ -151,13 +168,10 @@ impl App {
         Some((i, &self.hist[i]))
     }
 
-    /// Seconds from `s` to the newest sample, by timestamp (sample count if they don't parse).
+    /// Seconds between sample `i` arriving and the newest sample arriving.
     fn age(&self, i: usize) -> i64 {
-        let newest = self.hist.len() - 1;
-        match (self.hist[i].t, self.hist[newest].t) {
-            (Some(a), Some(b)) => (b - a).round() as i64,
-            _ => (newest - i) as i64,
-        }
+        let newest = self.arrived.len() - 1;
+        (self.arrived[newest] - self.arrived[i]).round() as i64
     }
 
     fn draw(&mut self, f: &mut Frame) {
@@ -348,6 +362,8 @@ mod tests {
             source: Source::replay(),
             meta: None,
             hist: VecDeque::new(),
+            arrived: VecDeque::new(),
+            clock: Instant::now(),
             offset: 0,
             paused: false,
             yaw: 0.0,
@@ -364,9 +380,18 @@ mod tests {
         {
             let mut s = s;
             s.cpu = i as f64; // tag each sample with its arrival index
-            a.push(s);
+            a.push_at(s, i as f64 * 1.5); // arriving 1.5 s apart
         }
         a
+    }
+
+    #[test]
+    fn age_is_arrival_time_even_when_recorded_timestamps_loop() {
+        // 100 samples: the 90-sample recording loops, so recorded time jumps back at 90
+        let a = app(100);
+        assert_eq!(a.age(99), 0);
+        assert_eq!(a.age(0), 149); // 99 × 1.5 s, rounded
+        assert_eq!(a.age(95), 6);
     }
 
     #[test]
@@ -401,13 +426,5 @@ mod tests {
         a.push(next);
         assert_eq!(a.cursor().unwrap().1.cpu, held);
         assert_eq!(a.hist.len(), 102);
-    }
-
-    #[test]
-    fn age_uses_timestamps() {
-        let a = app(90);
-        // the recording spans 90 samples at about 1.2 s apart
-        let age = a.age(0);
-        assert!((100..=115).contains(&age), "{age}");
     }
 }

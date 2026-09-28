@@ -86,9 +86,7 @@ pub fn epoch(ts: &str) -> Option<f64> {
     let (y, mo, d) = (n(0, 4)?, n(5, 7)?, n(8, 10)?);
     let (h, mi, sec) = (n(11, 13)?, n(14, 16)?, n(17, 19)?);
     let rest = ts.get(19..).unwrap_or("");
-    let frac_end = rest
-        .find(['Z', '+', '-'])
-        .unwrap_or(rest.len());
+    let frac_end = rest.find(['Z', '+', '-']).unwrap_or(rest.len());
     let frac: f64 = rest[..frac_end]
         .parse::<f64>()
         .ok()
