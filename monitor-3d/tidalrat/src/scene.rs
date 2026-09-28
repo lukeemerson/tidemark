@@ -428,15 +428,13 @@ pub struct Terrain<'a> {
     /// aligned so the last row sits at the front edge
     pub rows: &'a [Vec<f64>],
     pub window: usize,
-    /// age of the oldest row, e.g. "t−90s", drawn beside it at the floor's left edge
-    pub back_label: String,
     /// rows (indices into `rows`) where an alert rule started firing, and whether that row is
     /// the cursor's (the front row)
     pub alerts: &'a [(usize, bool)],
 }
 
 const TERRAIN_MIN_DEPTH: f64 = 6.0;
-/// alert markers sit this many lane widths outside the floor's left edge, clear of the lanes
+/// alert markers sit this many lane widths outside the floor's side edge, clear of the lanes
 const ALERT_GAP: f64 = 2.5;
 
 impl Terrain<'_> {
@@ -462,8 +460,14 @@ impl Terrain<'_> {
     }
     fn extent(&self) -> Vec<(f64, f64, f64)> {
         let (hx, hz) = (self.half_x(), self.half_z());
-        // the alert marker line beside the floor, so markers never leave the frame
-        let mut pts = vec![(-hx - ALERT_GAP, 0.0, -hz), (-hx - ALERT_GAP, 0.0, hz)];
+        // the alert marker lines beside both side edges, so markers never leave the frame
+        let ax = hx + ALERT_GAP;
+        let mut pts = vec![
+            (-ax, 0.0, -hz),
+            (-ax, 0.0, hz),
+            (ax, 0.0, -hz),
+            (ax, 0.0, hz),
+        ];
         for x in [-hx, hx] {
             for z in [-hz, hz + 0.6] {
                 for y in [0.0, HMAX] {
@@ -538,19 +542,20 @@ impl Terrain<'_> {
                 ((py / 4.0).floor() as i64, (px / 2.0).round() as i64 - 1)
             })
             .collect();
-        let b = proj(-hx, 0.0, self.slot_z(off));
-        let ticks = vec![(
-            (b.1 / 4.0).floor() as i64,
-            (b.0 / 2.0).round() as i64,
-            self.back_label.clone(),
-        )];
-        // ▲ on the floor plane beside the terrain, level with the row where a rule fired
+        // ▲ on the floor plane beside whichever side edge faces screen-left at this yaw, level
+        // with the row where a rule fired; it switches sides as the terrain turns past side-on
+        let ax = hx + ALERT_GAP;
+        let mx = if cam.view(-ax, 0.0, 0.0).0 <= cam.view(ax, 0.0, 0.0).0 {
+            -ax
+        } else {
+            ax
+        };
         let marks = self
             .alerts
             .iter()
             .filter(|&&(r, _)| r < self.rows.len())
             .map(|&(r, on_cursor)| {
-                let (px, py) = proj(-hx - ALERT_GAP, 0.0, self.slot_z(off + r));
+                let (px, py) = proj(mx, 0.0, self.slot_z(off + r));
                 let role = if on_cursor { Role::Mid } else { Role::High };
                 (
                     (py / 4.0).floor() as i64,
@@ -563,7 +568,7 @@ impl Terrain<'_> {
         Chart {
             cells: cv.cells(&colours),
             labels,
-            ticks,
+            ticks: vec![],
             marks,
         }
     }
@@ -664,7 +669,6 @@ mod tests {
             lanes: 10,
             rows: &rows,
             window: 90,
-            back_label: "t−90s".into(),
             alerts: &[],
         };
         let (dw, dh) = (160, 96);
@@ -697,7 +701,6 @@ mod tests {
             lanes: 10,
             rows: &rows,
             window: 90,
-            back_label: String::new(),
             alerts: &[],
         };
         assert!(t.slot_z(89) > t.slot_z(0));
@@ -713,17 +716,14 @@ mod tests {
             lanes: 10,
             rows: &rows,
             window: 90,
-            back_label: String::new(),
             alerts: &alerts,
         };
         let chart = t.render(100, 30, &t.camera(0.0, 0.45));
         assert_eq!(chart.marks.len(), 2);
-        for &(r, c, g, _) in &chart.marks {
-            assert_eq!(g, '▲');
-            assert!(
-                (0..30).contains(&r) && (0..100).contains(&c),
-                "marker off the chart at ({r},{c})"
-            );
+        // markers take whichever side edge faces screen-left, switching sides past side-on
+        for yaw in [0.6, -0.6, 2.2, 3.0, 4.0] {
+            let c = t.render(100, 30, &t.camera(yaw, 0.45));
+            assert!(c.marks.iter().all(|m| m.1 < 50), "yaw {yaw}: {:?}", c.marks);
         }
         assert_eq!(chart.marks[0].3, Role::High);
         assert_eq!(chart.marks[1].3, Role::Mid); // the cursor's row

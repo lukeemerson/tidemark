@@ -226,23 +226,18 @@ impl App {
             ..inner
         };
 
-        let (rows, back_label, alerts) = match cursor {
+        let (rows, alerts) = match cursor {
             Some((i, _)) => {
                 let start = (i + 1).saturating_sub(WINDOW);
                 let rows: Vec<Vec<f64>> = (start..=i).map(|j| self.hist[j].cores.clone()).collect();
-                let label = if rows.len() > 1 {
-                    format!("t−{}s", self.age(start))
-                } else {
-                    String::new()
-                };
                 // alerts inside the window; the one on the cursor's row takes the cursor colour
                 let alerts: Vec<(usize, bool)> = (start..=i)
                     .filter(|&j| self.fired[j])
                     .map(|j| (j - start, j == i))
                     .collect();
-                (rows, label, alerts)
+                (rows, alerts)
             }
-            None => (vec![], String::new(), vec![]),
+            None => (vec![], vec![]),
         };
         let names: Vec<String> = match &self.meta {
             Some(m) => scene::core_layout(m.e, m.p)
@@ -258,7 +253,6 @@ impl App {
             lanes: names.len().max(1),
             rows: &rows,
             window: WINDOW,
-            back_label,
             alerts: &alerts,
         };
         let cam = terrain.camera(self.yaw, self.pitch);

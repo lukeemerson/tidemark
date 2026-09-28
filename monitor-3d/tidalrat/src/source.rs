@@ -23,7 +23,8 @@ pub struct Sample {
     pub thermal: String,
     /// bytes of swap in use
     pub swap_used: f64,
-    /// mactop's first process, as (pid, per-core CPU %): the alert rules' "top process"
+    /// the highest-CPU process, as (pid, per-core CPU %): the alert rules' "top process".
+    /// tidemark stable-sorts by CPU before its rules, so on a tie the earlier one wins.
     pub top: Option<(i64, f64)>,
 }
 
@@ -147,7 +148,7 @@ pub fn recording() -> (Meta, Vec<Sample>) {
         .samples
         .into_iter()
         .map(|s| Sample {
-            top: s.procs.first().map(|p| (p.pid, p.cpu)),
+            top: top_process(s.procs.iter().map(|p| (p.pid, p.cpu))),
             ..sample(s.cpu, s.cores, &s.t)
         })
         .collect();
@@ -174,10 +175,12 @@ pub fn parse_line(line: &str) -> Option<(Sample, Meta)> {
         .iter()
         .filter_map(Value::as_f64)
         .collect();
-    let top = v["processes"]
-        .as_array()
-        .and_then(|p| p.first())
-        .and_then(|p| Some((p["pid"].as_i64()?, p["cpu_percent"].as_f64()?)));
+    let top = v["processes"].as_array().and_then(|ps| {
+        top_process(
+            ps.iter()
+                .filter_map(|p| Some((p["pid"].as_i64()?, p["cpu_percent"].as_f64()?))),
+        )
+    });
     let s = Sample {
         thermal: v["thermal_state"].as_str().unwrap_or("").to_string(),
         swap_used: v["memory"]["swap_used"].as_f64().unwrap_or(0.0),
@@ -198,6 +201,14 @@ pub fn open(replay: bool, play: Option<&str>) -> io::Result<Source> {
         Some(path) => Source::play(path)?,
         None if replay => Source::replay(),
         None => Source::live().unwrap_or_else(Source::replay),
+    })
+}
+
+/// The highest-CPU process; the first one wins a tie, as after tidemark's stable sort.
+fn top_process(ps: impl Iterator<Item = (i64, f64)>) -> Option<(i64, f64)> {
+    ps.fold(None, |best: Option<(i64, f64)>, p| match best {
+        Some(b) if b.1 >= p.1 => Some(b),
+        _ => Some(p),
     })
 }
 
@@ -394,5 +405,12 @@ mod tests {
     fn ignores_non_object_lines() {
         assert!(parse_line("]").is_none());
         assert!(parse_line("").is_none());
+    }
+
+    #[test]
+    fn top_process_is_the_highest_cpu_first_on_ties() {
+        let ps = [(1, 20.0), (2, 176.0), (3, 90.0), (4, 176.0)];
+        assert_eq!(top_process(ps.into_iter()), Some((2, 176.0)));
+        assert_eq!(top_process(std::iter::empty()), None);
     }
 }
