@@ -9,11 +9,11 @@ Two tiers under `~/Library/Application Support/tidemark/history/`:
 | tier | span | resolution | content | file |
 | --- | --- | --- | --- | --- |
 | full | last 1 h | every sample | mactop's raw `--headless` line, the same as `-rec` | `raw-YYYYMMDD-HH.raw`, one per clock hour |
-| summary | last 24 h | 10 s buckets | every graphed series (average and peak), load and memory pressure, the top 5 processes by CPU (name, PID, peak %), and whether a diagnosis rule fired in the bucket | `sum-YYYYMMDD.jsonl`, one line per bucket |
+| summary | last 24 h | 10 s buckets | every graphed series (average and peak) and the averaged panel values, load and memory pressure, the top 5 processes by CPU (name, PID, peak %), and whether a diagnosis rule fired in the bucket | `sum-YYYYMMDD.jsonl`, one line per bucket |
 
 - A raw hour file is a valid `-play` recording, so an hour can be replayed or shared as-is.
 - The summary lines carry `Sys` (load, pressure), so the summary tier has none of the replay gap.
-- Sizes: raw is about 28 MB an hour, and the current and previous hour files are both kept, so up to about 56 MB. Summary is under 10 MB a day. Budget: under 70 MB total.
+- Sizes: raw is about 28 MB an hour, and the current and previous hour files are both kept, so up to about 56 MB. Summary lines also carry the averaged panel values (per-core loads, frequencies, temperatures, net and disk), about 2 KB each, so about 17 MB for 24 h. Budget: about 75 MB total.
 
 ## 2. Writing and pruning
 
