@@ -36,5 +36,5 @@
 
 ## Judgment calls (design)
 
-- **Beside the floor, not on it:** the front lanes hide the floor's left edge from behind (checked in a render at yaw 0, pitch 0.45). 2.5 lanes out lands in clear space. At the default yaw 0.6 the fixed left side swung behind the terrain for old alerts (build-3d's capture), so the side follows the view (Luke). Perspective still put far-back markers behind nearer, taller ridges on screen at most angles (build-3d's sweep), so markers sit above HMAX, where nothing can cover them (Luke).
+- **Beside the floor, not on it:** the front lanes hide the floor's left edge from behind (checked in a render at yaw 0, pitch 0.45). 2.5 lanes out lands in clear space. At the default yaw 0.6 the fixed left side swung behind the terrain for old alerts (build-3d's capture), so the side follows the view (Luke). Perspective still put far-back markers behind nearer, taller ridges on screen at most angles (build-3d's sweep), so markers sit above HMAX (Luke). Measured (build-3d, 90ae496): at the default pitch 0.45 they're clear at every yaw except just past side-on (~1.6–2.0 and ~4.8–5.1 rad), and near-level views (pitch ≤ 0.3) can still line a far marker up with nearer ridge tops. Accepted for now.
 - **`▲` only, no label:** several alerts in the window would crowd the terrain. The rule text belongs to a later diagnosis line.
