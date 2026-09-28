@@ -41,7 +41,7 @@ Proposed, not yet decided with Luke:
 | 2D | "what changed?" feed; processes grouped by project | README |
 | 2D | compare view: specced, queued with build-2d | COMPARE-SPEC.md |
 | 2D | process actions (kill/renice with a y/n confirm) | TODO-future |
-| 3D | alert `▲` markers on the terrain's time axis | TODO-future |
+| 3D | terrain alert markers: specced | TERRAIN-ALERTS-SPEC.md |
 | 3D | `--die` chip floorplan, then the throttle hotspot on it | PLAN row 3 |
 | 3D | `--web`, `--ratty`, `--wall` | PLAN rows 4, 5, 7 |
 | both | in-process sampling (vendored mactop IOReport), dropping the ~1–1.8 s startup | PLAN.md |
