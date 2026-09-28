@@ -15,7 +15,7 @@ Compare what's on screen now (A) against a marked moment (B) as an overlay on th
 - **Tile and box values:** A's value, then its difference from B: `37%  ▲+12` or `24.9 W  ▼−3.1`. The difference is in `dim` with ▲/▼. It is never in a state colour, since colour roles keep green, amber and red for state. When the two match after rounding it reads `±0`.
 - **Header:** after the time, `·  vs B t−3h12m` (how far back B is from A). The compact form is `vs −3h12m`.
 - **Track:** B's position shows as a dim `B` in the cell holding it.
-- Unchanged: process lists, the diagnosis line, bars and meters all show A only.
+- Unchanged: process lists, the diagnosis line, bars, meters and block sparklines (tiles, glance stat lines) all show A only. Block characters can't overlay, so only braille graphs ghost.
 
 ## 3. Resolution
 
