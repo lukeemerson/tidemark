@@ -38,6 +38,10 @@ struct App {
     columns: Columns,
     /// live mactop exited; we fell back to the recording
     mactop_stopped: bool,
+    /// chart scale and the canvas size it was fitted for; shrinks at once, grows smoothly
+    zoom: Option<(f64, (usize, usize))>,
+    /// seconds since the previous frame
+    dt: f64,
 }
 
 pub fn run(opts: Opts) -> io::Result<()> {
@@ -70,6 +74,8 @@ pub fn run(opts: Opts) -> io::Result<()> {
         ratty_found,
         columns: Columns::new(n),
         mactop_stopped: false,
+        zoom: None,
+        dt: 0.0,
     };
     let result = app
         .columns
@@ -86,6 +92,7 @@ impl App {
         loop {
             let dt = last.elapsed().as_secs_f64();
             last = Instant::now();
+            self.dt = dt;
             if let Some((s, m)) = self.source.poll() {
                 if let Some(m) = m
                     && self.meta.as_ref() != Some(&m)
@@ -206,14 +213,17 @@ impl App {
             None => scene::core_layout(0, self.loads.len()),
         };
         let cam = Camera::new(self.yaw, self.pitch, &cores);
-        let chart = scene::render(
-            chart_area.width as usize,
-            chart_area.height as usize,
-            &cam,
-            &cores,
-            &self.loads,
-            !self.columns.on,
-        );
+        let (cw, ch) = (chart_area.width as usize, chart_area.height as usize);
+        let dims = (cw * 2, ch * 4);
+        let (fit_k, _, _) = scene::fit(&cam, &cores, dims.0, dims.1);
+        let a = 1.0 - (-self.dt / 0.5).exp();
+        let zoom = match self.zoom {
+            // shrink at once so nothing leaves the frame; grow over ~0.5 s so spinning doesn't pump
+            Some((z, d)) if d == dims => (z + (fit_k - z) * a).min(fit_k),
+            _ => fit_k,
+        };
+        self.zoom = Some((zoom, dims));
+        let chart = scene::render(cw, ch, &cam, &cores, &self.loads, !self.columns.on, zoom);
         draw_chart(f.buffer_mut(), chart_area, &chart, &cores);
 
         let anchors: Vec<(u16, u16)> = chart
