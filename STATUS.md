@@ -37,7 +37,7 @@ Proposed, not yet decided with Luke:
 
 | area | item | source |
 | --- | --- | --- |
-| 2D | on-demand settings menu | README |
+| 2D | settings menu: specced | SETTINGS-SPEC.md |
 | 2D | "what changed?" feed; processes grouped by project | README |
 | 2D | compare view: specced, queued with build-2d | COMPARE-SPEC.md |
 | 2D | process actions (kill/renice with a y/n confirm) | TODO-future |
