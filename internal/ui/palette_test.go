@@ -70,7 +70,7 @@ func TestAnsiUploadFollowsBackground(t *testing.T) {
 
 // Rate labels stay within axisGraph's 6-column gutter, including the 1000–1023 K band.
 func TestShortRateFitsGutter(t *testing.T) {
-	for _, b := range []float64{0, 9.9, 999, 1000 * 1024, 1023 * 1024, 999.9 * 1024 * 1024, 5e12} {
+	for _, b := range []float64{0, 9.9, 9.97, 9.97 * 1024, 999, 1000 * 1024, 1023 * 1024, 999.9 * 1024 * 1024, 5e12} {
 		if s := shortRate(b); len(s) > 6 {
 			t.Errorf("shortRate(%.0f) = %q, %d chars", b, s, len(s))
 		}

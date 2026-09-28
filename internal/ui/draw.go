@@ -278,7 +278,7 @@ func shortRate(b float64) string {
 		b /= 1024
 		i++
 	}
-	if b >= 10 {
+	if b >= 9.95 { // %.1f would round these up to a 4-character "10.0"
 		return fmt.Sprintf("%.0f%s/s", b, u[i])
 	}
 	return fmt.Sprintf("%.1f%s/s", b, u[i])
