@@ -53,7 +53,7 @@ func (m Model) sidebarLayout(rows, w int) []string {
 	if extra := ph - procMax; extra > 0 { // spare height goes to the three graphs
 		ch, gh, pwh, ph = ch+extra-2*(extra/3), gh+extra/3, pwh+extra/3, procMax
 	}
-	right := rounded.box("cpu", freq+"  "+m.hCPU(), gw, ch, graph(m.hcpu, gw-4, ch-2, 100, nil)...)
+	right := rounded.box("cpu", freq+"  "+m.hCPU(), gw, ch, graph(m.hcpu, gw-4, ch-2, 100, cCPU)...)
 	right = append(right, rounded.box("gpu", m.hGPU(), gw, gh, m.pGPU(gw-4, gh-3)...)...)
 	right = append(right, rounded.box("power", m.hPow(), gw, pwh, m.pPow(gw-4, pwh-3)...)...)
 	right = append(right, rounded.box("processes", "", gw, ph, m.pProc(gw-4, ph-3)...)...)
@@ -93,8 +93,8 @@ func (m Model) side(iw, h int) []string {
 		row("mem", m.hMem(), m.memPct()),
 		row("power", m.hPow()),
 		"",
-		row("temp", level(soc.CPUTemp).Render(num(m.have, "%.0f°", soc.CPUTemp))+dim.Render(" cpu  ")+
-			level(soc.GPUTemp).Render(num(m.have, "%.0f°", soc.GPUTemp))+dim.Render(" gpu")),
+		row("temp", num(m.have, "%.0f°", soc.CPUTemp)+dim.Render(" cpu  ")+
+			num(m.have, "%.0f°", soc.GPUTemp)+dim.Render(" gpu")),
 		row("fan", num(m.have, "%.0f", fan)+dim.Render(" rpm · "+thermal)),
 		row("net", "↓ "+rate(m.have, nd.InBytes)+" ↑ "+rate(m.have, nd.OutBytes)),
 		row("disk", "r "+rate(m.have, nd.ReadKBytes*1024)+" w "+rate(m.have, nd.WriteKB*1024)),
@@ -116,8 +116,8 @@ func (m Model) side(iw, h int) []string {
 		where = "testing…"
 	}
 	s = append(s,
-		row("speed", title.Inherit(net).Render(fmt.Sprintf("↓ %.0f", r.Download.Mbps))+dim.Render(" / ")+
-			title.Inherit(power).Render(fmt.Sprintf("↑ %.0f", r.Upload.Mbps))+dim.Render(" Mbps")),
+		row("speed", title.Render(fmt.Sprintf("↓ %.0f", r.Download.Mbps))+dim.Render(" / ")+
+			title.Render(fmt.Sprintf("↑ %.0f", r.Upload.Mbps))+dim.Render(" Mbps")),
 		row("ping", fmt.Sprintf("%.0f ms", r.IdleLatency.MedianMs)+dim.Render("  jitter ")+
 			fmt.Sprintf("%.0f ms", r.IdleLatency.JitterMs)),
 		row("grade", dim.Render("bloat ")+orQ(r.Quality.Bufferbloat)+dim.Render("  stable ")+orQ(r.Quality.Stability)),
@@ -132,15 +132,15 @@ func (m Model) side(iw, h int) []string {
 	dl, ul := m.cfdl[len(m.cfdl)-n:], m.cful[len(m.cful)-n:]
 	top := max(hmax(dl, 1), hmax(ul, 1))
 	s = append(s, "")
-	for i, l := range vbar2(dl, ul, ch, top, net, power) {
+	for i, l := range vbar2(dl, ul, ch, top, cDown, cUp) {
 		lbl := "     "
 		if i == 0 {
 			lbl = fmt.Sprintf("%4.0f ", top)
 		}
 		s = append(s, dim.Render(lbl)+l)
 	}
-	return append(s, dim.Render(fmt.Sprintf("     %d runs · ", len(m.runs)))+net.Render("▌")+
-		dim.Render(" down ")+power.Render("▌")+dim.Render(" up"))
+	return append(s, dim.Render(fmt.Sprintf("     %d runs · ", len(m.runs)))+cDown.Render("▌")+
+		dim.Render(" down ")+cUp.Render("▌")+dim.Render(" up"))
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +208,7 @@ func (m Model) historyBand(pr *int, w int) []string {
 	lw := (w - 3) * 3 / 5
 	rw := w - 3 - lw
 	return band([3]string{"╠", "╬", "╣"}, "cpu history", m.hCPU(), lw, "power history", m.hPow(), rw,
-		graph(m.hcpu, lw-2, extra-1, 100, nil), graph(m.hpow, rw-2, extra-1, hmax(m.hpow, 1), &power))
+		graph(m.hcpu, lw-2, extra-1, 100, cCPU), graph(m.hpow, rw-2, extra-1, hmax(m.hpow, 1), cPower))
 }
 
 // procBand is the full-width process table under the last two-column band, rows lines tall.
@@ -262,8 +262,8 @@ func (m Model) instrumentBands(w int) []string {
 	cpuL := []string{
 		m.pCPU(lw-2, 0)[0],
 		bar(m.s.CPUUsage, lw-2, nil),
-		dim.Render(" temp ") + level(soc.CPUTemp).Render(num(m.have, "%.0f°", soc.CPUTemp)) + dim.Render(" cpu  ") +
-			level(soc.GPUTemp).Render(num(m.have, "%.0f°", soc.GPUTemp)) + dim.Render(" gpu  ·  ") + thermal +
+		dim.Render(" temp ") + num(m.have, "%.0f°", soc.CPUTemp) + dim.Render(" cpu  ") +
+			num(m.have, "%.0f°", soc.GPUTemp) + dim.Render(" gpu  ·  ") + thermal +
 			dim.Render("  ·  ") + num(m.have, "%.0f", fan) + dim.Render(" rpm"),
 	}
 	out = append(out, band([3]string{"╔", "╦", "╗"}, "cpu", m.hCPU(), lw, "cores", "", rw, cpuL, m.pCores(rw-2, 2))...)
@@ -271,10 +271,10 @@ func (m Model) instrumentBands(w int) []string {
 	peak := hmax(m.hpow, 1)
 	powR := []string{
 		m.pPow(rw-2, 0)[0],
-		bar(soc.TotalPower/peak*100, rw-2, &power),
+		bar(soc.TotalPower/peak*100, rw-2, &cPower),
 		dim.Render(fmt.Sprintf(" of %.1f W peak", peak)),
 	}
-	gpuL := []string{m.pGPU(lw-2, 0)[0], bar(m.s.GPUUsage, lw-2, &gpu)}
+	gpuL := []string{m.pGPU(lw-2, 0)[0], bar(m.s.GPUUsage, lw-2, &cGPU)}
 	out = append(out, band([3]string{"╠", "╬", "╣"}, "gpu", m.hGPU(), lw, "power", m.hPow(), rw, gpuL, powR)...)
 
 	memL := append(m.pMem(lw-2), m.pIO(lw-2)...)

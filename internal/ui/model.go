@@ -330,13 +330,13 @@ type stat struct {
 	name, val string
 	hist      []float64
 	top       float64
-	col       *lipgloss.Style
+	col       lipgloss.Style // the series colour: sparkline only, never the value
 }
 
 func (m Model) statList() []stat {
 	temp := num(m.have, "%.0f°", m.s.SoC.CPUTemp)
 	if m.have {
-		temp = title.Inherit(level(m.s.SoC.CPUTemp)).Render(temp)
+		temp = title.Render(temp)
 	}
 	var dl, ul, lat float64
 	if len(m.runs) > 0 {
@@ -344,23 +344,19 @@ func (m Model) statList() []stat {
 		dl, ul, lat = r.Download.Mbps, r.Upload.Mbps, r.IdleLatency.MedianMs
 	}
 	return []stat{
-		{"cpu", m.hCPU(), m.hcpu, 100, nil},
-		{"gpu", m.hGPU(), m.hgpu, 100, &gpu},
-		{"power", m.hPow(), m.hpow, hmax(m.hpow, 1), &power},
-		{"mem", m.hMem(), m.hmem, 100, &mid},
-		{"temp", temp, m.htc, 110, &high},
-		{"↓ cf", title.Inherit(net).Render(fmt.Sprintf("%.0f Mbps", dl)), m.cfdl, hmax(m.cfdl, 1), &net},
-		{"↑ cf", title.Inherit(power).Render(fmt.Sprintf("%.0f Mbps", ul)), m.cful, hmax(m.cful, 1), &power},
-		{"ping", title.Render(fmt.Sprintf("%.0f ms", lat)), m.cflat, hmax(m.cflat, 1), &dim},
+		{"cpu", m.hCPU(), m.hcpu, 100, cCPU},
+		{"gpu", m.hGPU(), m.hgpu, 100, cGPU},
+		{"power", m.hPow(), m.hpow, hmax(m.hpow, 1), cPower},
+		{"mem", m.hMem(), m.hmem, 100, cMem},
+		{"temp", temp, m.htc, 110, cTemp},
+		{"↓ cf", title.Render(fmt.Sprintf("%.0f Mbps", dl)), m.cfdl, hmax(m.cfdl, 1), cDown},
+		{"↑ cf", title.Render(fmt.Sprintf("%.0f Mbps", ul)), m.cful, hmax(m.cful, 1), cUp},
+		{"ping", title.Render(fmt.Sprintf("%.0f ms", lat)), m.cflat, hmax(m.cflat, 1), cPing},
 	}
 }
 
 func (st stat) spark(w int) string {
-	sp := spark(st.hist, w, st.top)
-	if st.col != nil {
-		sp = st.col.Render(sp)
-	}
-	return sp
+	return st.col.Render(spark(st.hist, w, st.top))
 }
 
 // stats shows the summary: 8 tiles in a row when wide, two rows of 4 when medium,

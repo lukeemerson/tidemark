@@ -15,9 +15,16 @@ var (
 	low   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(2))
 	mid   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(3))
 	high  = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(1))
-	gpu   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(4))
-	power = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(6))
-	net   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(5))
+	// low/mid/high are for state only (meters, pressure, errors); each series has its own slot.
+	// Neighbouring tiles differ even in themes where bright slots equal normal ones.
+	cCPU   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(6))  // cpu, load
+	cGPU   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(4))  // gpu
+	cPower = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(5))  // power
+	cMem   = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(14)) // memory, swap
+	cTemp  = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(13)) // temperatures
+	cDown  = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(12)) // download, disk read
+	cUp    = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(7))  // upload, disk write
+	cPing  = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(8))  // latency
 )
 
 func level(v float64) lipgloss.Style {
@@ -206,9 +213,9 @@ func hmax(hist []float64, floor float64) float64 {
 var fillL = []int{0, 64, 68, 70, 71}
 var fillR = []int{0, 128, 160, 176, 184}
 
-// graph draws the newest 2w values of hist as a w×h braille area chart (two samples per cell).
-// Rows take col, or the level colour of their height when col is nil.
-func graph(hist []float64, w, h int, top float64, col *lipgloss.Style) []string {
+// graph draws the newest 2w values of hist as a w×h braille area chart (two samples per cell)
+// in the series colour.
+func graph(hist []float64, w, h int, top float64, col lipgloss.Style) []string {
 	if top <= 0 {
 		top = 1
 	}
@@ -243,11 +250,7 @@ func graph(hist []float64, w, h int, top float64, col *lipgloss.Style) []string 
 		for c := 0; c < w; c++ {
 			b.WriteRune(rune(0x2800 + cells[r*w+c]))
 		}
-		st := level((float64(h-r-1) + 0.5) / float64(h) * 100)
-		if col != nil {
-			st = *col
-		}
-		out[r] = st.Render(b.String())
+		out[r] = col.Render(b.String())
 	}
 	return out
 }

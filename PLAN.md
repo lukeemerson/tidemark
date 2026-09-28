@@ -58,7 +58,7 @@ Border titles: lipgloss has no titled border, so `box()` in draw.go builds the t
 5. ✅ `l`/`L` layouts (tiles · sidebar · instrument), each with its own line weight and skeleton;
    choice saved to `~/.config/tidemark/config.json`.
 6. On-demand config UI (btop-style, closer to mactop's): more settings behind one menu.
-7. **Colour roles** (dataviz audit, 2026-09-27):
+7. ✅ **Colour roles** (dataviz audit, 2026-09-27):
    - **Identity vs state:** every series gets its own colour slot, and low/mid/high stay reserved for
      state. Today `mem` wears `mid` (warning), `temp` wears `high` (critical), and `power` and `↑ cf`
      share cyan.

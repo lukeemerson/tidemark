@@ -15,7 +15,7 @@ import (
 func (m Model) hCPU() string {
 	v := num(m.have, "%3.0f%%", m.s.CPUUsage)
 	if m.have {
-		v = title.Inherit(level(m.s.CPUUsage)).Render(v)
+		v = title.Render(v)
 	}
 	return v
 }
@@ -23,7 +23,7 @@ func (m Model) hCPU() string {
 func (m Model) hGPU() string {
 	v := num(m.have, "%3.0f%%", m.s.GPUUsage)
 	if m.have {
-		v = title.Inherit(gpu).Render(v)
+		v = title.Render(v)
 	}
 	return v
 }
@@ -31,7 +31,7 @@ func (m Model) hGPU() string {
 func (m Model) hPow() string {
 	v := num(m.have, "%.1f W", m.s.SoC.TotalPower)
 	if m.have {
-		v = title.Inherit(power).Render(v)
+		v = title.Render(v)
 	}
 	return v
 }
@@ -39,7 +39,7 @@ func (m Model) hPow() string {
 func (m Model) hMem() string {
 	v := num(m.have, "%3.0f%%", m.memPct())
 	if m.have {
-		v = title.Inherit(level(m.memPct())).Render(v)
+		v = title.Render(v)
 	}
 	return v
 }
@@ -48,14 +48,14 @@ func (m Model) pCPU(w, gh int) []string {
 	soc := m.s.SoC
 	l := dim.Render(" E ") + num(m.have, "%4.0f", soc.EFreqMHz) + dim.Render(" · P ") +
 		num(m.have, "%4.0f", soc.PFreqMHz) + dim.Render(" MHz")
-	return append([]string{l}, graph(m.hcpu, w, gh, 100, nil)...)
+	return append([]string{l}, graph(m.hcpu, w, gh, 100, cCPU)...)
 }
 
 func (m Model) pGPU(w, gh int) []string {
 	soc := m.s.SoC
 	l := dim.Render(fmt.Sprintf(" %s cores  ·  ", m.ngc())) + num(m.have, "%4.0f", soc.GPUFreqMHz) + " MHz" +
 		dim.Render("  ·  ANE ") + num(m.have, "%3.0f%%", soc.ANEActive)
-	return append([]string{l}, graph(m.hgpu, w, gh, 100, &gpu)...)
+	return append([]string{l}, graph(m.hgpu, w, gh, 100, cGPU)...)
 }
 
 func (m Model) pCores(w, per int) []string {
@@ -79,7 +79,7 @@ func (m Model) pCores(w, per int) []string {
 			if idx <= m.ne {
 				label = fmt.Sprintf("E%d", idx)
 			}
-			l += dim.Render(fit(label, lw)) + bar(p, bw, nil) + level(p).Render(num(m.have, "%4.0f%%", p))
+			l += dim.Render(fit(label, lw)) + bar(p, bw, nil) + num(m.have, "%4.0f%%", p)
 			if j < per {
 				l += "   "
 			}
@@ -94,7 +94,7 @@ func (m Model) pPow(w, h int) []string {
 	out := []string{dim.Render(" system ") + num(m.have, "%.1f", soc.SystemPower) + dim.Render(" W  ·  GPU ") +
 		num(m.have, "%.1f", soc.GPUPower) + dim.Render(" W")}
 	top := hmax(m.hpow, 1)
-	for i, row := range graph(m.hpow, w-7, h, top, &power) {
+	for i, row := range graph(m.hpow, w-7, h, top, cPower) {
 		l := "       "
 		if i == 0 {
 			l = fmt.Sprintf("%5.1fW ", top)
@@ -115,7 +115,7 @@ func (m Model) pMem(w int) []string {
 	if !m.have {
 		total = m.memTotal // sysctl, until mactop reports
 	}
-	l := level(mp).Render(used) + dim.Render(" / "+gb(total)+" GB")
+	l := used + dim.Render(" / "+gb(total)+" GB")
 	r := dim.Render("swap " + swap + " / " + gb(mem.SwapTotal) + " GB")
 	return []string{
 		spread(l, r, w),
@@ -128,8 +128,8 @@ func (m Model) pMem(w int) []string {
 func (m Model) pSens(w int) []string {
 	soc := m.s.SoC
 	out := []string{
-		dim.Render(" CPU ") + level(soc.CPUTemp).Render(num(m.have, "%.0f°", soc.CPUTemp)) +
-			dim.Render("   GPU ") + level(soc.GPUTemp).Render(num(m.have, "%.0f°", soc.GPUTemp)),
+		dim.Render(" CPU ") + num(m.have, "%.0f°", soc.CPUTemp) +
+			dim.Render("   GPU ") + num(m.have, "%.0f°", soc.GPUTemp),
 	}
 	thermal, fan := m.s.ThermalState, 0.0
 	if thermal == "" {
@@ -174,7 +174,7 @@ func (m Model) pCF(w int) []string {
 		return []string{dim.Render(" no saved runs — run: cloudy")}
 	}
 	r := m.runs[len(m.runs)-1]
-	bn := title.Inherit(net)
+	bn := title
 	lat := r.IdleLatency
 	out := []string{
 		bn.Render(fmt.Sprintf("↓ %.0f", r.Download.Mbps)) + dim.Render(" Mbps") + "   " +
@@ -187,8 +187,8 @@ func (m Model) pCF(w int) []string {
 	}
 	sw := min(len(m.runs), w-9)
 	out = append(out,
-		dim.Render(" ↓ hist ")+net.Render(spark(m.cfdl, sw, hmax(m.cfdl, 1))),
-		dim.Render(" ↑ hist ")+power.Render(spark(m.cful, sw, hmax(m.cful, 1))),
+		dim.Render(" ↓ hist ")+cDown.Render(spark(m.cfdl, sw, hmax(m.cfdl, 1))),
+		dim.Render(" ↑ hist ")+cUp.Render(spark(m.cful, sw, hmax(m.cful, 1))),
 	)
 	colo, isp := r.Meta.Colo.IATA, r.Meta.ASOrg
 	if colo == "" {
@@ -252,14 +252,14 @@ func (m Model) procTable(w, n int, by string) []string {
 		p := m.s.Processes[i]
 		pid := dim.Render(" " + fit(fmt.Sprint(p.PID), 8))
 		name := fit(m.names.Name(p.PID, p.Command), nameW)
-		cpu := level(p.CPUPercent).Render(fmt.Sprintf("%7.1f", p.CPUPercent))
+		cpu := fmt.Sprintf("%7.1f", p.CPUPercent)
 		memp := dim.Render(fmt.Sprintf("%8.1f", p.MemPercent))
 		if by == "gpu" {
-			memp = gpu.Render(fmt.Sprintf("%8.1f", p.GPUMsPerS))
+			memp = fmt.Sprintf("%8.1f", p.GPUMsPerS)
 		}
 		switch cols {
 		case "full":
-			out = append(out, pid+name+cpu+gpu.Render(fmt.Sprintf("%11.1f", p.GPUMsPerS))+
+			out = append(out, pid+name+cpu+fmt.Sprintf("%11.1f", p.GPUMsPerS)+
 				dim.Render(fmt.Sprintf("%8.1f%8.0f MB", p.MemPercent, p.RSSKB/1024)))
 		case "mid":
 			out = append(out, pid+name+cpu+memp)

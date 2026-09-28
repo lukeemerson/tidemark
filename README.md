@@ -108,8 +108,12 @@ are in [`design-system/`](design-system/).
 ┗━━━━━━━━━━━━━┛ ┗━━━━━━━━━━━━━┛ ┗━━━━━━━━━━━━━┛ ┗━━━━━━━━━━━━━━┛
 ```
 
-**Braille graph:** two samples per cell, four dots high, coloured by height (green, amber, red)
-or in one fixed colour.
+**Braille graph:** two samples per cell, four dots high, in the series colour.
+
+**Colour roles:** each series keeps one ANSI slot everywhere it appears (cpu cyan, gpu blue,
+power magenta, memory bright cyan, temperature bright magenta, in/download bright blue,
+out/upload the foreground grey). Green, amber and red only mean state: meters, memory pressure,
+errors. Numbers stay in the text colour.
 
 ```
 ┏━ cpu ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  28% ━┓

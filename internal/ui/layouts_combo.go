@@ -20,7 +20,7 @@ func (m Model) glanceLayout(rows, w int) []string {
 	}
 	ph := rows - len(out)
 	if extra := ph - procMax; extra >= 4 {
-		out = append(out, rules.box("cpu", m.hCPU(), w, extra, graph(m.hcpu, w-4, extra-2, 100, nil)...)...)
+		out = append(out, rules.box("cpu", m.hCPU(), w, extra, graph(m.hcpu, w-4, extra-2, 100, cCPU)...)...)
 		ph = procMax
 	}
 	return append(out, rules.box("processes", "", w, ph, m.pProc(w-4, ph-3)...)...)
@@ -37,21 +37,21 @@ func (m Model) wallLayout(rows, w int) []string {
 	nd, soc := m.s.NetDisk, m.s.SoC
 	h := (rows - 1) / 6
 	first := rows - 1 - 5*h // the cpu graph takes the remainder
-	g := func(t, rt string, hist []float64, bw, bh int, top float64, col *lipgloss.Style) []string {
+	g := func(t, rt string, hist []float64, bw, bh int, top float64, col lipgloss.Style) []string {
 		return block.box(t, rt, bw, bh, graph(hist, bw-4, bh-2, top, col)...)
 	}
 	freq := dim.Render(fmt.Sprintf("E %s · P %s MHz", num(m.have, "%.0f", soc.EFreqMHz), num(m.have, "%.0f", soc.PFreqMHz)))
-	out = append(out, g("cpu", freq+"  "+m.hCPU(), m.hcpu, w, first, 100, nil)...)
-	out = append(out, g("gpu", m.hGPU(), m.hgpu, w, h, 100, &gpu)...)
-	out = append(out, g("power", m.hPow(), m.hpow, w, h, hmax(m.hpow, 1), &power)...)
-	out = append(out, g("memory", m.hMem(), m.hmem, w, h, 100, &mid)...)
+	out = append(out, g("cpu", freq+"  "+m.hCPU(), m.hcpu, w, first, 100, cCPU)...)
+	out = append(out, g("gpu", m.hGPU(), m.hgpu, w, h, 100, cGPU)...)
+	out = append(out, g("power", m.hPow(), m.hpow, w, h, hmax(m.hpow, 1), cPower)...)
+	out = append(out, g("memory", m.hMem(), m.hmem, w, h, 100, cMem)...)
 	out = append(out, hjoin(
-		g("net ↓", rate(m.have, nd.InBytes), m.hnin, hw, h, hmax(m.hnin, 1), &net),
-		g("net ↑", rate(m.have, nd.OutBytes), m.hnout, rw, h, hmax(m.hnout, 1), &power),
+		g("net ↓", rate(m.have, nd.InBytes), m.hnin, hw, h, hmax(m.hnin, 1), cDown),
+		g("net ↑", rate(m.have, nd.OutBytes), m.hnout, rw, h, hmax(m.hnout, 1), cUp),
 	)...)
 	return append(out, hjoin(
-		g("disk read", rate(m.have, nd.ReadKBytes*1024), m.hdr, hw, h, hmax(m.hdr, 1), &gpu),
-		g("disk write", rate(m.have, nd.WriteKB*1024), m.hdw, rw, h, hmax(m.hdw, 1), &mid),
+		g("disk read", rate(m.have, nd.ReadKBytes*1024), m.hdr, hw, h, hmax(m.hdr, 1), cDown),
+		g("disk write", rate(m.have, nd.WriteKB*1024), m.hdw, rw, h, hmax(m.hdw, 1), cUp),
 	)...)
 }
 
@@ -93,14 +93,14 @@ func (m Model) thermalLayout(rows, w int) []string {
 		kv("battery", batt),
 	}
 	out = append(out, hjoin(
-		ascii.box("power", m.hPow(), lw, th, peakGraph(m.hpow, lw-4, th-2, peak, fmt.Sprintf("%.1f W", peak), &power)...),
+		ascii.box("power", m.hPow(), lw, th, peakGraph(m.hpow, lw-4, th-2, peak, fmt.Sprintf("%.1f W", peak), cPower)...),
 		ascii.box("energy", "", rw, th, readout...),
 	)...)
-	cpuT := level(soc.CPUTemp).Render(num(m.have, "%.0f°", soc.CPUTemp))
-	gpuT := level(soc.GPUTemp).Render(num(m.have, "%.0f°", soc.GPUTemp))
+	cpuT := num(m.have, "%.0f°", soc.CPUTemp)
+	gpuT := num(m.have, "%.0f°", soc.GPUTemp)
 	out = append(out, hjoin(
-		ascii.box("cpu temp", cpuT, hw, tg, graph(m.htc, hw-4, tg-2, 110, &high)...),
-		ascii.box("gpu temp", gpuT, w-hw-1, tg, graph(m.htg, w-hw-5, tg-2, 110, &high)...),
+		ascii.box("cpu temp", cpuT, hw, tg, graph(m.htc, hw-4, tg-2, 110, cTemp)...),
+		ascii.box("gpu temp", gpuT, w-hw-1, tg, graph(m.htg, w-hw-5, tg-2, 110, cTemp)...),
 	)...)
 	return append(out, ascii.box("processes", "", w, ph, m.pProc(w-4, ph-3)...)...)
 }
