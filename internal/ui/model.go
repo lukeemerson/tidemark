@@ -43,12 +43,12 @@ type Model struct {
 	cloudy    *exec.Cmd // running speed test, if any
 	cloudyErr error
 
-	lay      int                          // chosen layout (index into layouts)
-	fallback bool                         // set per frame when the chosen layout doesn't fit
-	palette  string                       // "ansi" or "tidemark" (palette.go)
-	dark     bool                         // terminal background, as the terminal reports it
-	save     func(config.Config)          // persists the choices; nil in tests
-	saved    config.Config                // what's saved: flags this run don't overwrite it
+	lay      int                 // chosen layout (index into layouts)
+	fallback bool                // set per frame when the chosen layout doesn't fit
+	palette  string              // "ansi" or "tidemark" (palette.go)
+	dark     bool                // terminal background, as the terminal reports it
+	save     func(config.Config) // persists the choices; nil in tests
+	saved    config.Config       // what's saved: flags this run don't overwrite it
 
 	have              bool
 	s                 source.Sample
