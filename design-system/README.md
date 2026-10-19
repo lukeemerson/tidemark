@@ -1,4 +1,4 @@
-The ultimate Master monitor TUI for mac,  the best of cloudflare, btop, vtop, mactop with a customizable gui
+The ultimate Master monitor TUI for mac, the best of cloudflare, btop, vtop, mactop with a customizable gui
 
 A terminal system monitor for Apple silicon, drawn in character cells: heavy box frames, braille graphs, block sparklines and square-cell meters, coloured by your Alacritty palette. Source: `bin/monitor` (draft 03, "tiles", adopted) and the ten framings in `drafts/`.
 
@@ -39,14 +39,14 @@ One face at one size: `mono` (JetBrains Mono NL Nerd Font, no ligatures) as `cel
 
 ## Frames
 
-| frame | characters | drafts | reads as |
-| --- | --- | --- | --- |
-| heavy | `┏ ┓ ┗ ┛ ━ ┃` | 03 (adopted) | solid tiles, the loudest frame |
-| round | `╭ ╮ ╰ ╯ ─ │` | 01, 04, 06, 10 | btop-style, soft |
-| square | `┌ ┐ └ ┘ ─ │` | 02, 08 | plain light boxes |
-| double | `╔ ╗ ╚ ╝ ═ ║` | 07 | formal, busy at small sizes |
-| dashed | `┌ ┐ └ ┘ ┄ ┆` | 09 | light enough for a small pane |
-| rule | `── title ──`, no sides | 05 | the quietest; columns need `rule-gap` |
+| frame  | characters              | drafts         | reads as                              |
+| ------ | ----------------------- | -------------- | ------------------------------------- |
+| heavy  | `┏ ┓ ┗ ┛ ━ ┃`           | 03 (adopted)   | solid tiles, the loudest frame        |
+| round  | `╭ ╮ ╰ ╯ ─ │`           | 01, 04, 06, 10 | btop-style, soft                      |
+| square | `┌ ┐ └ ┘ ─ │`           | 02, 08         | plain light boxes                     |
+| double | `╔ ╗ ╚ ╝ ═ ║`           | 07             | formal, busy at small sizes           |
+| dashed | `┌ ┐ └ ┘ ┄ ┆`           | 09             | light enough for a small pane         |
+| rule   | `── title ──`, no sides | 05             | the quietest; columns need `rule-gap` |
 
 Draft 04 is one round frame divided by `├ ┼ ┤ ┬ ┴` junctions (`SectionedFrame`).
 
@@ -73,20 +73,20 @@ Each draft arranges the same panels differently. All start with the header line 
 
 ## Glyphs
 
-| glyph | use |
-| --- | --- |
-| `┏ ┓ ┗ ┛ ━ ┃` | heavy frame (`Box`, `Tile`) |
-| `╭ ╮ ╰ ╯ ─ │` `┌ ┐ └ ┘` `╔ ╗ ╚ ╝ ═ ║` `┄ ┆` | other `Box` frames |
-| `├ ┼ ┤ ┬ ┴` | shared dividers (`SectionedFrame`) |
-| `■` / `·` | meter on / off cell (`Bar`) |
-| `▁▂▃▄▅▆▇█` | 8-level sparkline (`Sparkline`), per-core strip (`StatRow`), eighth-steps in `RunBars` |
-| `▰` / `▱` | sidebar meter on / off (`StatRow`) |
-| `▌` | legend swatch before a series name |
-| `U+2800–28FF` | braille graph, 2 samples × 4 dots per cell (`BrailleGraph`) |
-| `↓ ↑` | in / out |
-| `·` | fact separator |
-| `●` | status dot |
-| `…` | truncation and pending status |
+| glyph                                       | use                                                                                    |
+| ------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `┏ ┓ ┗ ┛ ━ ┃`                               | heavy frame (`Box`, `Tile`)                                                            |
+| `╭ ╮ ╰ ╯ ─ │` `┌ ┐ └ ┘` `╔ ╗ ╚ ╝ ═ ║` `┄ ┆` | other `Box` frames                                                                     |
+| `├ ┼ ┤ ┬ ┴`                                 | shared dividers (`SectionedFrame`)                                                     |
+| `■` / `·`                                   | meter on / off cell (`Bar`)                                                            |
+| `▁▂▃▄▅▆▇█`                                  | 8-level sparkline (`Sparkline`), per-core strip (`StatRow`), eighth-steps in `RunBars` |
+| `▰` / `▱`                                   | sidebar meter on / off (`StatRow`)                                                     |
+| `▌`                                         | legend swatch before a series name                                                     |
+| `U+2800–28FF`                               | braille graph, 2 samples × 4 dots per cell (`BrailleGraph`)                            |
+| `↓ ↑`                                       | in / out                                                                               |
+| `·`                                         | fact separator                                                                         |
+| `●`                                         | status dot                                                                             |
+| `…`                                         | truncation and pending status                                                          |
 
 ## Changed since the drafts
 

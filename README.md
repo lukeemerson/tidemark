@@ -55,17 +55,17 @@ go build -o ~/.local/bin/tidemark ./cmd/tidemark
 `r` needs [cloudflare-speed-cli](https://github.com/kavehtehrani/cloudflare-speed-cli). Without it
 the cloudflare panels still show any runs it saved earlier.
 
-| key | does |
-| --- | --- |
-| `l` / `L` | next / previous layout (remembered in `~/.config/tidemark/config.json`) |
-| `c` | switch palette: your terminal's 16 colours (default) or the built-in `tidemark` palette |
-| `r` | run a Cloudflare speed test (~30 s) and reload the cloudflare panels |
-| `space` | pause (the screen holds; samples keep arriving) / back to live |
-| `[` `]` · `{` `}` | while paused: step one unit · jump 30 (a sample, or 10 s on the 24h span) |
-| `z` | scrub span: the 400 samples in memory → the last hour on disk → the last 24 h (10 s buckets) |
-| `m` | mark the moment on screen as B: graphs ghost it, values show their difference · `m` again clears |
-| `o` | settings: layout, palette, interval and store, changed live and saved on close |
-| `q` | quit |
+| key               | does                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| `l` / `L`         | next / previous layout (remembered in `~/.config/tidemark/config.json`)                          |
+| `c`               | switch palette: your terminal's 16 colours (default) or the built-in `tidemark` palette          |
+| `r`               | run a Cloudflare speed test (~30 s) and reload the cloudflare panels                             |
+| `space`           | pause (the screen holds; samples keep arriving) / back to live                                   |
+| `[` `]` · `{` `}` | while paused: step one unit · jump 30 (a sample, or 10 s on the 24h span)                        |
+| `z`               | scrub span: the 400 samples in memory → the last hour on disk → the last 24 h (10 s buckets)     |
+| `m`               | mark the moment on screen as B: graphs ghost it, values show their difference · `m` again clears |
+| `o`               | settings: layout, palette, interval and store, changed live and saved on close                   |
+| `q`               | quit                                                                                             |
 
 `tidemark -i 500` samples every 500 ms for that run (default 1000, or what `o` saved). History is kept in
 `~/Library/Application Support/tidemark/history` (the last hour of raw samples, and 24 h of 10 s
@@ -83,18 +83,18 @@ clears after 5 quiet samples, and each firing leaves a `▲` on the paused scrub
 Each layout has its own frame style. Every one scales down: below its minimum size it hands
 over to `tiles`, which fits down to 20×20, and the header says so (`sidebar → tiles`).
 
-| # | layout | frame | for |
-| --- | --- | --- | --- |
-| 1 | `tiles` | heavy `┏━┓` | the overview: 8 summary tiles, graphs, processes and a side column |
-| 2 | `sidebar` | rounded `╭─╮` | every number in one column, graphs over processes |
-| 3 | `instrument` | double `╔═╦═╗` | one frame split by shared dividers; bars and numbers, full-width processes |
-| 4 | `console` | double + tile band | instrument with the summary tiles closing the frame |
-| 5 | `compute` | square `┌─┐` | CPU and GPU side by side, down to the top CPU and GPU processes |
-| 6 | `memory` | dashed `┌╌┐` | usage, kernel pressure, swap and load; processes by memory |
-| 7 | `io` | heavy dashed `┏╍┓` | network and disk throughput, the full speed-test history |
-| 8 | `glance` | rules `── ──` | a small pane: one line per stat, sensors, top processes |
-| 9 | `wall` | block `▛▀▜` | every history as a full-width graph, no tables |
-| 10 | `thermal` | ascii `+-+` | power and heat: energy readout, CPU and GPU temperature graphs |
+| #   | layout       | frame              | for                                                                        |
+| --- | ------------ | ------------------ | -------------------------------------------------------------------------- |
+| 1   | `tiles`      | heavy `┏━┓`        | the overview: 8 summary tiles, graphs, processes and a side column         |
+| 2   | `sidebar`    | rounded `╭─╮`      | every number in one column, graphs over processes                          |
+| 3   | `instrument` | double `╔═╦═╗`     | one frame split by shared dividers; bars and numbers, full-width processes |
+| 4   | `console`    | double + tile band | instrument with the summary tiles closing the frame                        |
+| 5   | `compute`    | square `┌─┐`       | CPU and GPU side by side, down to the top CPU and GPU processes            |
+| 6   | `memory`     | dashed `┌╌┐`       | usage, kernel pressure, swap and load; processes by memory                 |
+| 7   | `io`         | heavy dashed `┏╍┓` | network and disk throughput, the full speed-test history                   |
+| 8   | `glance`     | rules `── ──`      | a small pane: one line per stat, sensors, top processes                    |
+| 9   | `wall`       | block `▛▀▜`        | every history as a full-width graph, no tables                             |
+| 10  | `thermal`    | ascii `+-+`        | power and heat: energy readout, CPU and GPU temperature graphs             |
 
 ## Components
 

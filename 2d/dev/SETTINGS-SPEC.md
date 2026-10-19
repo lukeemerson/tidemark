@@ -4,12 +4,12 @@ One overlay for the settings tidemark already has. Nothing new becomes configura
 
 ## 1. Contents
 
-| row | values | today |
-| --- | --- | --- |
-| layout | the 10 layouts | `l` / `L`, saved |
-| palette | `ansi`, `tidemark` | `c`, saved |
-| interval | 250, 500, 1000, 2000, 5000 ms | `-i`, not saved |
-| store | on, off | `-nostore`, not saved |
+| row      | values                        | today                 |
+| -------- | ----------------------------- | --------------------- |
+| layout   | the 10 layouts                | `l` / `L`, saved      |
+| palette  | `ansi`, `tidemark`            | `c`, saved            |
+| interval | 250, 500, 1000, 2000, 5000 ms | `-i`, not saved       |
+| store    | on, off                       | `-nostore`, not saved |
 
 - `interval` and `store` are now saved in `config.json` as well. Their flags still override for that one run.
 - A row set by a flag this run is dim and reads `2000 ms (-i)` or `off (-nostore)`. It can't be changed from the menu.

@@ -14,11 +14,27 @@
   overflow-x: auto;
   border-radius: var(--radius-term);
 }
-.mt-b { font-weight: 700; }
-.mt-dim { color: var(--dim); }
-.mt-level-low { color: var(--level-low); }
-.mt-level-mid { color: var(--level-mid); }
-.mt-level-high { color: var(--level-high); }
-.mt-series-gpu { color: var(--series-gpu); }
-.mt-series-power { color: var(--series-power); }
-.mt-series-net { color: var(--series-net); }
+.mt-b {
+  font-weight: 700;
+}
+.mt-dim {
+  color: var(--dim);
+}
+.mt-level-low {
+  color: var(--level-low);
+}
+.mt-level-mid {
+  color: var(--level-mid);
+}
+.mt-level-high {
+  color: var(--level-high);
+}
+.mt-series-gpu {
+  color: var(--series-gpu);
+}
+.mt-series-power {
+  color: var(--series-power);
+}
+.mt-series-net {
+  color: var(--series-net);
+}

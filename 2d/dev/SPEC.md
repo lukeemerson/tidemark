@@ -25,11 +25,11 @@ Terminal features for tidemark (Go). The 3D versions are in `TODO-future.md`.
 
 One line under the header, shown only while a rule fires. The highest-priority rule wins; no config.
 
-| priority | rule | fields | text |
-| --- | --- | --- | --- |
-| 1 | thermal throttle | `ThermalState` ≠ `Nominal` | `▲ throttling: thermal ‹STATE› · cpu 94°C` |
-| 2 | swap storm | `Memory.SwapUsed` rising > 256 MB over 10 samples and `Sys.Pressure` ≥ 2 | `▲ swapping: +1.2 GB in 10s · pressure warn` |
-| 3 | runaway process | top `Process.CPUPercent` ≥ 100 (one full core) for 10 samples | `▲ runaway: replayd (900) 176% cpu for 45s` |
+| priority | rule             | fields                                                                   | text                                         |
+| -------- | ---------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
+| 1        | thermal throttle | `ThermalState` ≠ `Nominal`                                               | `▲ throttling: thermal ‹STATE› · cpu 94°C`   |
+| 2        | swap storm       | `Memory.SwapUsed` rising > 256 MB over 10 samples and `Sys.Pressure` ≥ 2 | `▲ swapping: +1.2 GB in 10s · pressure warn` |
+| 3        | runaway process  | top `Process.CPUPercent` ≥ 100 (one full core) for 10 samples            | `▲ runaway: replayd (900) 176% cpu for 45s`  |
 
 - `‹STATE›` is a placeholder in the mockups only. The build shows mactop's actual `thermal_state` string. Only `Nominal` has been seen in a recording (see TODO-future.md).
 - While scrubbing, the line shows the rule state at the cursor's sample, so stepping back to a `▲` shows that alert again.

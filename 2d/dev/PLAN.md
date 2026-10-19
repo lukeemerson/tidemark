@@ -30,15 +30,15 @@ internal/ui/             model.go (Init/Update/View, alt screen), draw.go (box/g
 
 ## Bubble Tea mapping
 
-| zsh                         | Bubble Tea                                                                                     |
-| --------------------------- | ---------------------------------------------------------------------------------------------- |
-| `draw` before mactop starts | `View()` with `have=false` renders dashes; `Init()` returns `m.wait`                           |
-| `zselect` on the mactop fd  | `Model.wait` receives one `Sample` from the channel as `sampleMsg`, re-issued in `Update`      |
-| `TRAPWINCH`                 | `tea.WindowSizeMsg`                                                                            |
-| `q` key                     | `tea.KeyPressMsg` "q" / ctrl+c → `tea.Quit`; main.go stops mactop                              |
-| `box`/`hjoin`/`padv`/`vis`  | hand-ported `box`/`hjoin` in draw.go; `lipgloss.Width` measures width                          |
-| `graph` / `spark` / `bar`   | hand-written pure functions in draw.go                                                         |
-| ANSI palette names          | lipgloss ANSI colours 1–6, 8, so the Alacritty palette still applies                           |
+| zsh                         | Bubble Tea                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------- |
+| `draw` before mactop starts | `View()` with `have=false` renders dashes; `Init()` returns `m.wait`                      |
+| `zselect` on the mactop fd  | `Model.wait` receives one `Sample` from the channel as `sampleMsg`, re-issued in `Update` |
+| `TRAPWINCH`                 | `tea.WindowSizeMsg`                                                                       |
+| `q` key                     | `tea.KeyPressMsg` "q" / ctrl+c → `tea.Quit`; main.go stops mactop                         |
+| `box`/`hjoin`/`padv`/`vis`  | hand-ported `box`/`hjoin` in draw.go; `lipgloss.Width` measures width                     |
+| `graph` / `spark` / `bar`   | hand-written pure functions in draw.go                                                    |
+| ANSI palette names          | lipgloss ANSI colours 1–6, 8, so the Alacritty palette still applies                      |
 
 Border titles: lipgloss has no titled border, so `box()` in draw.go builds the top line itself.
 
@@ -74,6 +74,7 @@ Border titles: lipgloss has no titled border, so `box()` in draw.go builds the t
 
    Add an optional built-in truecolor palette, validated for dark and light surfaces and chosen in
    the config (step 6). ANSI stays the default so terminal themes still apply.
+
 9. **Readable without colour:**
    - ✅ **Run bars:** ↓ is solid `█`, ↑ is textured `▓`, so they differ by shape as well as colour.
    - ✅ **Scales:** every graph labels its top value on one axis (cpu `100%`, net and disk peaks, as
@@ -90,7 +91,7 @@ terminal monitoring. More metrics alone won't stand out. The edge is connecting 
 here: Apple Silicon metrics, process activity, power, thermals, saved network-quality tests.
 
 Strongest combination: rewind + change detection + project grouping. Together they answer
-*when did it happen, what changed, and which piece of my work was involved?*
+_when did it happen, what changed, and which piece of my work was involved?_
 
 1. **Rewind the whole machine view** (build first). Press a key when something stutters, then
    scrub back through synchronized CPU, GPU, memory, thermals and process snapshots; every
